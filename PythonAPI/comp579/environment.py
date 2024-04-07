@@ -6,6 +6,8 @@ import time
 
 import cv2
 import numpy as np
+import config as cfg
+from typing import Tuple
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -19,14 +21,7 @@ import carla
 
 
 class CarlaEnv:
-    IM_WIDTH = 640
-    IM_HEIGHT = 480
-    FOV = 110
-    SHOW_CAM = True
-    SECONDS_PER_EPISODE = 10
-    STEER_AMT = 0.5
-
-    def __init__(self, host="127.0.0.1", port=2000, *args, **kwargs):
+    def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, *args, **kwargs):
         self.client = carla.Client(host, port)
         self.client.set_timeout(2.0)
         self.world = self.client.get_world()
@@ -38,8 +33,9 @@ class CarlaEnv:
         self.actor_list = []
         self.spawn_point = None
         self.vehicle = None
-        self.sensor = None
-        self.episode_start = 0
+        self.camera = None
+        self.collision_sensor = None
+        self.episode_start = time.time()
         self.front_camera = None
 
 
@@ -49,61 +45,47 @@ class CarlaEnv:
         self.actor_list = []
 
         self._spawn_vehicle()
-        # self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
-        
         self._spawn_camera()
-        self.sensor.listen(lambda data: self._process_img(data))
 
-        time.sleep(2)
+        # wait for the car to fall and settle
+        time.sleep(4)
+
+        # wait for the camera to start capturing
         while self.front_camera is None:
             time.sleep(0.01)
 
-        # collsensor = self.bp_lib.find("sensor.other.collision")
-        # self.colsensor = self.world.spawn_actor(collsensor, attach_to=self.vehicle)
-        # self.actor_list.append(self.colsensor)
-        # self.colsensor.listen(lambda event: self._collision_data(event))
+        # set up collision sensor (after the vehicle settled)
+        self._spawn_col_sensor()
 
+        # set starting time
         self.episode_start = time.time()
-        # self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
-
+        
         return self.front_camera
     
-    def step(self, action):
-        if action==0:
-            control = (1.0, -1*self.STEER_AMT)
-        elif action==1:
-            control = (1.0, 0)
-        elif action==2:
-            control = (1.0, 1*self.STEER_AMT)
+    def step(self, action: int):
+        # take action
+        control = cfg.ACTIONS[action]
+        self.vehicle.apply_control(carla.VehicleControl(**control))
 
-        self.vehicle.apply_control(carla.VehicleControl(*control))
-
-        v = self.vehicle.get_velocity()
-        kmh = int(3.6 * np.sqrt(v.x**2 + v.y**2 + v.z**2))
-        
+        # check if done and get the reward value
         if len(self.collision_hist) != 0:
             done = True
             reward = -200
-        elif kmh < 50:
-            done = False
-            reward = -1
         else:
             done = False
-            reward = 1
+            distance, phi, v_kmh = self._get_states()
+            reward = v_kmh * (np.abs(np.cos(phi)) - np.abs(np.sin(phi)) - distance)
 
-        if self.episode_start + self.SECONDS_PER_EPISODE < time.time():
+        if self.episode_start + cfg.SECONDS_PER_EPISODE < time.time():
             done = True
         
-        reward = self._get_states()
-
         return self.front_camera, reward, done, None
-    
 
     def clear(self):
         for actor in self.actor_list:
             actor.destroy()
 
-    def _get_states(self):       
+    def _get_states(self) -> Tuple[float, float, float]:
         # distance from closest waypoint
         loc = self.vehicle.get_transform()
         waypoint = self.map.get_waypoint(loc.location).transform
@@ -111,14 +93,13 @@ class CarlaEnv:
         
         # angle difference with the closest waypoint
         phi = np.deg2rad(waypoint.rotation.yaw - loc.rotation.yaw)
-        cos_phi = np.cos(phi)
 
         # velocity
         v_vector = self.vehicle.get_velocity()
-        v_kmh = int(3.6 * np.sqrt(v_vector.x**2 + v_vector.y**2 + v_vector.z**2))
+        v_kmh = 3.6 * np.sqrt(v_vector.x**2 + v_vector.y**2 + v_vector.z**2)
         
 
-        return distance, cos_phi, v_kmh
+        return distance, phi, v_kmh
 
     def _spawn_vehicle(self):
         if self.spawn_point is None:
@@ -128,41 +109,54 @@ class CarlaEnv:
         
         self.actor_list.append(self.vehicle)
 
+        self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0)) # initial control
+
         return self.vehicle
     
     def _spawn_camera(self):
-
         spawn_point = carla.Transform(carla.Location(x=2.5, z=0.7))
 
         cam_bp = self.bp_lib.find("sensor.camera.rgb")
-        cam_bp.set_attribute("image_size_x", f"{self.IM_WIDTH}")
-        cam_bp.set_attribute("image_size_y", f"{self.IM_HEIGHT}")
-        cam_bp.set_attribute("fov", f"{self.FOV}")
+        cam_bp.set_attribute("image_size_x", f"{cfg.IM_WIDTH}")
+        cam_bp.set_attribute("image_size_y", f"{cfg.IM_HEIGHT}")
+        cam_bp.set_attribute("fov", f"{cfg.FOV}")
 
-        self.sensor = self.world.spawn_actor(cam_bp, spawn_point, attach_to=self.vehicle)
+        self.camera = self.world.spawn_actor(cam_bp, spawn_point, attach_to=self.vehicle)
 
-        self.actor_list.append(self.sensor)
-        
-        return self.sensor
+        self.actor_list.append(self.camera)
+
+        self.camera.listen(lambda data: self._process_img(data)) # start capturing the image
+ 
+        return self.camera
+
+    def _spawn_col_sensor(self):
+        colsensor = self.bp_lib.find("sensor.other.collision")
+        self.collision_sensor = self.world.spawn_actor(colsensor, transform=carla.Transform(), attach_to=self.vehicle)
+        self.actor_list.append(self.collision_sensor)
+        self.collision_sensor.listen(lambda event: self._collision_data(event))
+
+        return self.collision_sensor
 
     def _process_img(self, data):
-        self.front_camera = np.array(data.raw_data).reshape((self.IM_HEIGHT, self.IM_WIDTH, 4))[:, :, :3]
+        self.front_camera = np.array(data.raw_data).reshape((cfg.IM_HEIGHT, cfg.IM_WIDTH, 4))[:, :, :3]
         
-        if self.SHOW_CAM:
+        if cfg.SHOW_CAM:
             cv2.imshow("", self.front_camera)
             cv2.waitKey(1)
+        
+        if cfg.SAVE_IMG:
+            data.save_to_disk('_out/%06d.png' % data.frame_number)
 
     def _calc_distance(self, loc1: carla.Location, loc2: carla.Location):
         dist_obj = loc1 - loc2
         dist_arr = np.array([dist_obj.x, dist_obj.y, dist_obj.z])
 
         return np.sqrt(np.sum(np.square(dist_arr)))
-        
-
+     
     def _collision_data(self, event):
+        name = ' '.join(event.other_actor.type_id.replace('_', '.').title().split('.')[1:])
+        truncate = 250
+        print((name[:truncate - 1] + u'\u2026') if len(name) > truncate else name)
+
         self.collision_hist.append(event)
     
-
-class Car:
-    def __init__(self, *args, **kwargs):
-        pass
