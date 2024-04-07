@@ -2,3 +2,5 @@
 HDMaps/
 Engine/
 CarlaUE4/
+.vscode
+*.pyc
