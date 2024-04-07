@@ -73,6 +73,14 @@ class CarlaEnv:
         # take action
         control = cfg.ACTIONS[action]
         self.vehicle.apply_control(carla.VehicleControl(**control))
+        
+        # get states and save them for output
+        distance, phi, v_kmh = self._get_states()
+        info = {
+            "d": distance,
+            "phi": phi,
+            "v_kmh": v_kmh,
+        }
 
         # check if done and get the reward value
         if len(self.collision_hist) != 0:
@@ -80,13 +88,12 @@ class CarlaEnv:
             reward = -200
         else:
             done = False
-            distance, phi, v_kmh = self._get_states()
             reward = v_kmh * (np.abs(np.cos(phi)) - np.abs(np.sin(phi)) - distance)
 
         if self.episode_start + cfg.SECONDS_PER_EPISODE < time.time():
             done = True
-        
-        return self.front_camera, reward, done, None
+
+        return self.front_camera, reward, done, info
 
     def clear(self):
         for actor in self.actor_list:
