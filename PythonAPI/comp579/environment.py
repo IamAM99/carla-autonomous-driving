@@ -47,6 +47,10 @@ class CarlaEnv:
         self._spawn_vehicle()
         self._spawn_camera()
 
+        # an initial control needs to be here for carla to accept next control commands without delay
+        # after a wait time, we disengage the brakes
+        self.vehicle.apply_control(carla.VehicleControl(throttle=1.0, brake=1.0))
+        
         # wait for the car to fall and settle
         time.sleep(4)
 
@@ -59,6 +63,9 @@ class CarlaEnv:
 
         # set starting time
         self.episode_start = time.time()
+
+        # disengage the brakes
+        self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
         
         return self.front_camera
     
@@ -108,8 +115,6 @@ class CarlaEnv:
         self.vehicle = self.world.spawn_actor(self.model_3, self.spawn_point)
         
         self.actor_list.append(self.vehicle)
-
-        self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0)) # initial control
 
         return self.vehicle
     
