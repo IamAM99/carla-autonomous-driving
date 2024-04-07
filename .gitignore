@@ -1,4 +1,10 @@
 *.exe
+*.pyc
+*.png
+
 HDMaps/
 Engine/
 CarlaUE4/
+
+.vscode
+.idea
