@@ -90,7 +90,15 @@ class CarlaEnv:
 
     def clear(self):
         for actor in self.actor_list:
-            actor.destroy()
+            # stop the actor's callback
+            if hasattr(actor, 'is_listening') and actor.is_listening:
+                actor.stop()
+
+            # destroy the actor
+            if actor.is_alive:
+                actor.destroy()
+
+        self.actor_list = []
 
     def _get_states(self) -> Tuple[float, float, float]:
         # distance from closest waypoint
