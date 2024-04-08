@@ -7,7 +7,7 @@ import time
 import cv2
 import numpy as np
 import config as cfg
-from typing import Tuple
+from typing import Tuple, List
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -26,21 +26,26 @@ class CarlaEnv:
         self.client.set_timeout(2.0)
         self.world = self.client.get_world()
         self.map = self.world.get_map()
+        self.spawn_points = self.map.get_spawn_points()
         self.bp_lib = self.world.get_blueprint_library()
         self.model_3 = self.bp_lib.find("vehicle.tesla.model3")
         
-        self.collision_hist = []
-        self.actor_list = []
-        self.spawn_point = None
-        self.vehicle = None
-        self.camera = None
-        self.collision_sensor = None
-        self.episode_start = time.time()
-        self.front_camera = None
-
+        self.collision_hist: list = []
+        self.actor_list: list = []
+        self.car_spawn_point: carla.Transform = None
+        self.vehicle: carla.Actor = None
+        self.camera: carla.Sensor = None
+        self.collision_sensor: carla.Sensor = None
+        self.episode_start: float = time.time()
+        self.front_camera: np.typing.ArrayLike = None
+        self.loc: carla.Transform = None
+        self.waypoint: carla.Waypoint = None
+        self.waypoints: np.typing.ArrayLike = None # [x_column; y_column]
 
     def reset(self, car_spawn_point=None, *args, **kwargs):
-        self.spawn_point = car_spawn_point
+        if car_spawn_point is None:
+            car_spawn_point = self.spawn_points[0]
+        self.car_spawn_point = car_spawn_point
         self.collision_hist = []
         self.actor_list = []
 
@@ -74,13 +79,10 @@ class CarlaEnv:
         control = cfg.ACTIONS[action]
         self.vehicle.apply_control(carla.VehicleControl(**control))
         
-        # get states and save them for output
+        # get the states
+        self._update_loc_waypoint()
+        self._update_waypoints()
         distance, phi, v_kmh = self._get_states()
-        info = {
-            "d": distance,
-            "phi": phi,
-            "v_kmh": v_kmh,
-        }
 
         # check if done and get the reward value
         if len(self.collision_hist) != 0:
@@ -93,7 +95,16 @@ class CarlaEnv:
         if self.episode_start + cfg.SECONDS_PER_EPISODE < time.time():
             done = True
 
-        return self.front_camera, reward, done, info
+        # create the states dictionary
+        states = {
+            "image": self.front_camera,
+            "waypoints": self.waypoints,
+            "d": distance,
+            "phi": phi,
+            "v_kmh": v_kmh,
+        }
+
+        return states, reward, done, None
 
     def clear(self):
         for actor in self.actor_list:
@@ -109,12 +120,10 @@ class CarlaEnv:
 
     def _get_states(self) -> Tuple[float, float, float]:
         # distance from closest waypoint
-        loc = self.vehicle.get_transform()
-        waypoint = self.map.get_waypoint(loc.location).transform
-        distance = self._calc_distance(loc.location, waypoint.location)
+        distance = self._calc_distance(self.loc.location, self.waypoint.transform.location)
         
         # angle difference with the closest waypoint
-        phi = np.deg2rad(waypoint.rotation.yaw - loc.rotation.yaw)
+        phi = np.deg2rad(self.waypoint.transform.rotation.yaw - self.loc.rotation.yaw)
 
         # velocity
         v_vector = self.vehicle.get_velocity()
@@ -123,13 +132,31 @@ class CarlaEnv:
 
         return distance, phi, v_kmh
 
-    def _spawn_vehicle(self):
-        if self.spawn_point is None:
-            self.spawn_point = random.choice(self.world.get_map().get_spawn_points())
+    def _update_loc_waypoint(self) -> Tuple[carla.Transform, carla.Waypoint]:
+        self.loc = self.vehicle.get_transform()
+        self.waypoint = self.map.get_waypoint(self.loc.location)
 
-        self.vehicle = self.world.spawn_actor(self.model_3, self.spawn_point)
+        return self.loc, self.waypoint
+    
+    def _update_waypoints(self) -> List[carla.Waypoint]:
+        self.waypoints = [self.waypoint]
+        while len(self.waypoints) < 15:
+            self.waypoints += self.waypoints[-1].next(10)
+
+        self.waypoints = np.array([[w.transform.location.x, w.transform.location.y] for w in self.waypoints[:15]])
+
+        return self.waypoints
+
+    def _spawn_vehicle(self):
+        if self.car_spawn_point is None:
+            self.car_spawn_point = random.choice(self.world.get_map().get_spawn_points())
+
+        self.vehicle = self.world.spawn_actor(self.model_3, self.car_spawn_point)
         
         self.actor_list.append(self.vehicle)
+
+        self._update_loc_waypoint()
+        self._update_waypoints()
 
         return self.vehicle
     

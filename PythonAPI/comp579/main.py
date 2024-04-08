@@ -7,25 +7,29 @@ def main():
 
     try:
         
-        _, reward, _, _ = env.step(0)
-        print(reward)
-
+        states, reward, _, _ = env.step(0)
+        print(f"R = {reward:.2f}")
+        print(states["waypoints"])
         time.sleep(2)
 
-        _, reward, _, _ = env.step(1)
-        print(reward)
+        states, reward, _, _ = env.step(1)
+        print(f"R = {reward:.2f}")
+        print(states["waypoints"])
         time.sleep(1)
 
-        _, reward, _, _ = env.step(0)
-        print(reward)
+        states, reward, _, _ = env.step(0)
+        print(f"R = {reward:.2f}")
+        print(states["waypoints"])
         time.sleep(1)
 
-        _, reward, _, _ = env.step(2)
-        print(reward)
+        states, reward, _, _ = env.step(2)
+        print(f"R = {reward:.2f}")
+        print(states["waypoints"])
         time.sleep(1)
 
-        _, reward, _, _ = env.step(0)
-        print(reward)
+        states, reward, _, _ = env.step(0)
+        print(f"R = {reward:.2f}")
+        print(states["waypoints"])
         time.sleep(2)
 
     finally:
