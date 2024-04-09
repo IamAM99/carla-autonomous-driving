@@ -35,6 +35,12 @@ class CarlaEnv:
         self.spawn_points = self.map.get_spawn_points()
         self.bp_lib = self.world.get_blueprint_library()
 
+        # set weather
+        self.world.set_weather(
+            # carla.WeatherParameters(cloudyness=1, precipitation=1, precipitation_deposits=0, wind_intensity=0.35, sun_azimuth_angle=0, sun_altitude_angle=75)
+            carla.WeatherParameters.CloudyNoon
+        )
+
         # no rendering
         if cfg.NO_RENDERING_MODE:
             settings = self.world.get_settings()
@@ -58,7 +64,7 @@ class CarlaEnv:
 
     def reset(self, car_spawn_point=None, *args, **kwargs):
         if car_spawn_point is None:
-            car_spawn_point = self.spawn_points[0]
+            car_spawn_point = self.spawn_points[101]
         self.car_spawn_point = car_spawn_point
         self.collision_hist = []
         self.actor_list = []
