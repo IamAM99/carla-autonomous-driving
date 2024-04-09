@@ -13,6 +13,11 @@ ACTIONS: Dict[int, Dict[str, float]] = {
     3: dict(throttle=0, steer=0*STEER_AMT, brake=1), # brake
 }
 
+# Rewards
+COLLISION_REWARD: float = -200.0
+GOAL_DISTANCE_THRESHOLD: float = 1.0 # minimum distance of the car from the goal point to count as success
+GOAL_REACHED_REWARD: float = 100.0
+
 # Camera
 IM_WIDTH: int = 480
 IM_HEIGHT: int = 270
@@ -22,5 +27,5 @@ SAVE_IMG: bool = False
 LOCK_SPECTATOR_VIEW: bool = False
 
 # Simulation
-NO_RENDERING_MODE = False
+NO_RENDERING_MODE: bool = False
 SECONDS_PER_EPISODE: float = 10.0

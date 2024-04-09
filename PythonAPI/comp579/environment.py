@@ -42,6 +42,14 @@ class CarlaEnv:
         self.world = self.client.get_world()
         self.spectator = self.world.get_spectator()
         self.bp_lib = self.world.get_blueprint_library()
+
+        # set default spectator view
+        self.spectator.set_transform(
+            carla.Transform(
+                carla.Location(x=-100, y=105, z=20), 
+                carla.Rotation(pitch=-40, yaw=135, roll=0)
+            )
+        )
         
         # map attributes
         self.map = self.world.get_map()
@@ -141,7 +149,10 @@ class CarlaEnv:
         # check if done and get the reward value
         if len(self.collision_hist) != 0:
             done = True
-            reward = -200
+            reward = cfg.COLLISION_REWARD
+        elif self._calc_distance(self.vehicle_transform.location, self.route_points[-1].location) < cfg.GOAL_DISTANCE_THRESHOLD:
+            done = True
+            reward = cfg.GOAL_REACHED_REWARD
         else:
             done = False
 
@@ -161,16 +172,18 @@ class CarlaEnv:
         return states, reward, done, None
 
     def clear(self):
-        for actor in self.actor_list:
-            # stop the actor's callback
-            if hasattr(actor, 'is_listening') and actor.is_listening:
-                actor.stop()
+        all_actors = self.world.get_actors()
+        for vehicle in all_actors.filter("*vehicle*"):
+            vehicle.destroy()
+            print("Destroyed a vehicle")
+        
+        for sensor in all_actors.filter("*sensor*"):
+            if sensor.is_listening:
+                sensor.stop()
+            sensor.destroy()
+            print("Destroyed a sensor")
 
-            # destroy the actor
-            if actor.is_alive:
-                actor.destroy()
-
-        self.actor_list = []
+        # self.actor_list = []
 
     def _update_loc_waypoint(self) -> Tuple[carla.Transform, carla.Waypoint]:
         self.vehicle_transform = self.vehicle.get_transform()
@@ -178,13 +191,14 @@ class CarlaEnv:
 
         return self.vehicle_transform, self.waypoint
     
-    def _update_waypoints(self) -> List[carla.Waypoint]:
+    def _update_waypoints(self, num_items=5) -> List[carla.Waypoint]:
         self.waypoints = [self.waypoint]
-        while len(self.waypoints) < 15:
+        while len(self.waypoints) < num_items:
             self.waypoints += self.waypoints[-1].next(10)
         
-        draw_waypoints(self.world, self.waypoints)
-        self.waypoints = np.array([[w.transform.location.x, w.transform.location.y] for w in self.waypoints[:15]])
+        # print(self.waypoints[0])
+        draw_waypoints(self.world, self.waypoints[:num_items])
+        self.waypoints = np.array([[w.transform.location.x, w.transform.location.y] for w in self.waypoints[:num_items]])
 
         return self.waypoints
 
