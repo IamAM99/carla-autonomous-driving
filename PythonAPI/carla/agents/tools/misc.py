@@ -31,6 +31,20 @@ def draw_waypoints(world, waypoints, z=0.5):
         end = begin + carla.Location(x=math.cos(angle), y=math.sin(angle))
         world.debug.draw_arrow(begin, end, arrow_size=0.3, life_time=1.0)
 
+def draw_locations(world, transforms: carla.Transform, z=0.5):
+    """
+    Draw a list of locations at a certain height given in z.
+
+    :param world: carla.world object
+    :param transforms: list or iterable container with the locations to draw
+    :param z: height in meters
+    :return:
+    """
+    for transform in transforms:
+        location = transform.location
+        location += carla.Location(z=z)
+        world.debug.draw_point(location, life_time=1e9)
+
 
 def get_speed(vehicle):
     """
