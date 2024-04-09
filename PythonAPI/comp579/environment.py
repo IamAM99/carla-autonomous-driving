@@ -9,6 +9,9 @@ import numpy as np
 import config as cfg
 from typing import Tuple, List
 
+from reward_functions import RouteReward
+import route
+
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
@@ -25,28 +28,41 @@ from agents.tools.misc import draw_waypoints
 
 class CarlaEnv:
     def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, *args, **kwargs):
+        # make a connection to the server
         self.client = carla.Client(host, port)
         self.client.set_timeout(2.0)
 
-        # world and map attributes
+        # get the route transforms
+        self.route_points: List[carla.Transform] = route.get_transforms(point_distance=4)
+
+        # create a reward object
+        self.reward = RouteReward(self.route_points)
+
+        # world attributes
         self.world = self.client.get_world()
-        self.map = self.world.get_map()
         self.spectator = self.world.get_spectator()
-        self.spawn_points = self.map.get_spawn_points()
         self.bp_lib = self.world.get_blueprint_library()
+        
+        # map attributes
+        self.map = self.world.get_map()
+        self.spawn_points = self.map.get_spawn_points()
 
         # set weather
         self.world.set_weather(carla.WeatherParameters.CloudyNoon)
 
-        # no rendering
+        # set the rendering mode
+        settings = self.world.get_settings()
         if cfg.NO_RENDERING_MODE:
-            settings = self.world.get_settings()
             settings.no_rendering_mode = True
+            self.world.apply_settings(settings)
+        else:
+            settings.no_rendering_mode = False
             self.world.apply_settings(settings)
 
         # the car blueprint
         self.model_3 = self.bp_lib.find("vehicle.tesla.model3")
         
+        # initialization of other attributes
         self.collision_hist: list = []
         self.actor_list: list = []
         self.car_spawn_point: carla.Transform = None
