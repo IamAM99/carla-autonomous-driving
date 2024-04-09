@@ -22,4 +22,5 @@ SAVE_IMG: bool = True
 LOCK_SPECTATOR_VIEW: bool = True
 
 # Simulation
+NO_RENDERING_MODE = True
 SECONDS_PER_EPISODE: float = 10.0

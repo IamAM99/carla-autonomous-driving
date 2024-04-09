@@ -35,6 +35,12 @@ class CarlaEnv:
         self.spawn_points = self.map.get_spawn_points()
         self.bp_lib = self.world.get_blueprint_library()
 
+        # no rendering
+        if cfg.NO_RENDERING_MODE:
+            settings = self.world.get_settings()
+            settings.no_rendering_mode = True
+            self.world.apply_settings(settings)
+
         # the car blueprint
         self.model_3 = self.bp_lib.find("vehicle.tesla.model3")
         
