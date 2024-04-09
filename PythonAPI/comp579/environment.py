@@ -71,7 +71,7 @@ class CarlaEnv:
         self.collision_sensor: carla.Sensor = None
         self.episode_start: float = time.time()
         self.front_camera: np.typing.ArrayLike = None
-        self.loc: carla.Transform = None
+        self.vehicle_transform: carla.Transform = None
         self.waypoint: carla.Waypoint = None
         self.waypoints: np.typing.ArrayLike = None # [x_column; y_column]
 
@@ -104,8 +104,25 @@ class CarlaEnv:
 
         # disengage the brakes
         self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
+
+        # get the states
+        self._update_loc_waypoint()
+        self._update_waypoints()
+        _, distance, phi, v_kmh = self.reward.get(
+            self.vehicle_transform, 
+            self.waypoint.transform, 
+            self.vehicle.get_velocity()
+        )
+
+        states = {
+            "image": self.front_camera,
+            "waypoints": self.waypoints,
+            "d": distance,
+            "phi": phi,
+            "v_kmh": v_kmh,
+        }
         
-        return self.front_camera
+        return states
     
     def step(self, action: int):
         # take action
@@ -115,7 +132,11 @@ class CarlaEnv:
         # get the states
         self._update_loc_waypoint()
         self._update_waypoints()
-        distance, phi, v_kmh = self._get_states()
+        reward, distance, phi, v_kmh = self.reward.get(
+            self.vehicle_transform, 
+            self.waypoint.transform, 
+            self.vehicle.get_velocity()
+        )
 
         # check if done and get the reward value
         if len(self.collision_hist) != 0:
@@ -123,8 +144,8 @@ class CarlaEnv:
             reward = -200
         else:
             done = False
-            reward = v_kmh * (np.abs(np.cos(phi)) - np.abs(np.sin(phi)) - distance)
 
+        # end the training if time limit is reached
         if self.episode_start + cfg.SECONDS_PER_EPISODE < time.time():
             done = True
 
@@ -151,25 +172,11 @@ class CarlaEnv:
 
         self.actor_list = []
 
-    def _get_states(self) -> Tuple[float, float, float]:
-        # distance from closest waypoint
-        distance = self._calc_distance(self.loc.location, self.waypoint.transform.location)
-        
-        # angle difference with the closest waypoint
-        phi = np.deg2rad(self.waypoint.transform.rotation.yaw - self.loc.rotation.yaw)
-
-        # velocity
-        v_vector = self.vehicle.get_velocity()
-        v_kmh = 3.6 * np.sqrt(v_vector.x**2 + v_vector.y**2 + v_vector.z**2)
-        
-
-        return distance, phi, v_kmh
-
     def _update_loc_waypoint(self) -> Tuple[carla.Transform, carla.Waypoint]:
-        self.loc = self.vehicle.get_transform()
-        self.waypoint = self.map.get_waypoint(self.loc.location)
+        self.vehicle_transform = self.vehicle.get_transform()
+        self.waypoint = self.map.get_waypoint(self.vehicle_transform.location)
 
-        return self.loc, self.waypoint
+        return self.vehicle_transform, self.waypoint
     
     def _update_waypoints(self) -> List[carla.Waypoint]:
         self.waypoints = [self.waypoint]
