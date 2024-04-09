@@ -18,7 +18,7 @@ IM_WIDTH: int = 480
 IM_HEIGHT: int = 270
 FOV: int = 110
 SHOW_CAM: bool = True
-SAVE_IMG: bool = True
+SAVE_IMG: bool = False
 LOCK_SPECTATOR_VIEW: bool = False
 
 # Simulation
