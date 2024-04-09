@@ -19,8 +19,8 @@ IM_HEIGHT: int = 270
 FOV: int = 110
 SHOW_CAM: bool = True
 SAVE_IMG: bool = True
-LOCK_SPECTATOR_VIEW: bool = True
+LOCK_SPECTATOR_VIEW: bool = False
 
 # Simulation
-NO_RENDERING_MODE = True
+NO_RENDERING_MODE = False
 SECONDS_PER_EPISODE: float = 10.0
