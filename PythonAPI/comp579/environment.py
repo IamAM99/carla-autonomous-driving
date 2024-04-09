@@ -17,17 +17,25 @@ try:
 except IndexError:
     pass
 
+sys.path.append("../carla")
+
 import carla
+from agents.tools.misc import draw_waypoints
 
 
 class CarlaEnv:
     def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, *args, **kwargs):
         self.client = carla.Client(host, port)
         self.client.set_timeout(2.0)
+
+        # world and map attributes
         self.world = self.client.get_world()
         self.map = self.world.get_map()
+        self.spectator = self.world.get_spectator()
         self.spawn_points = self.map.get_spawn_points()
         self.bp_lib = self.world.get_blueprint_library()
+
+        # the car blueprint
         self.model_3 = self.bp_lib.find("vehicle.tesla.model3")
         
         self.collision_hist: list = []
@@ -142,7 +150,8 @@ class CarlaEnv:
         self.waypoints = [self.waypoint]
         while len(self.waypoints) < 15:
             self.waypoints += self.waypoints[-1].next(10)
-
+        
+        draw_waypoints(self.world, self.waypoints)
         self.waypoints = np.array([[w.transform.location.x, w.transform.location.y] for w in self.waypoints[:15]])
 
         return self.waypoints
@@ -186,6 +195,9 @@ class CarlaEnv:
 
     def _process_img(self, data):
         self.front_camera = np.array(data.raw_data).reshape((cfg.IM_HEIGHT, cfg.IM_WIDTH, 4))[:, :, :3]
+
+        if cfg.LOCK_SPECTATOR_VIEW:
+            self.spectator.set_transform(get_transform(self.vehicle.get_location()))
         
         if cfg.SHOW_CAM:
             cv2.imshow("", self.front_camera)
@@ -207,3 +219,9 @@ class CarlaEnv:
 
         self.collision_hist.append(event)
     
+def get_transform(vehicle_location, angle=-90, d=3):
+    """ Get the transform for the spectator view
+    """
+    a = np.radians(angle)
+    location = carla.Location(d * np.cos(a), d * np.sin(a), 2.0) + vehicle_location
+    return carla.Transform(location, carla.Rotation(yaw=180 + angle, pitch=-30))

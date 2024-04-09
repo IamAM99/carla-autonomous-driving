@@ -34,6 +34,7 @@ def main():
 
     finally:
         env.clear()
+        print("Cleared successfully")
 
 if __name__=="__main__":
     main()
