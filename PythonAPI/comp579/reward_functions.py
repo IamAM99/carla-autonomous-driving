@@ -24,6 +24,7 @@ class RouteReward:
         vehicle_transform: carla.Transform, 
         waypoint_transform: carla.Transform,
         v_vector: carla.Vector3D,
+        distance_threshold: floate = 2.5,
     ) -> float:
         # minimum distance from the list of route points
         distances = [
@@ -38,7 +39,7 @@ class RouteReward:
             vehicle_transform.location,
         )
 
-        distance = 0.0 if distance < 2.5 else distance
+        distance = 0.0 if distance < distance_threshold else distance
         
         # angle difference with the closest waypoint
         phi = np.deg2rad(waypoint_transform.rotation.yaw - vehicle_transform.rotation.yaw)
