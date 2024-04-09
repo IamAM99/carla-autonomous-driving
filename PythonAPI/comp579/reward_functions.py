@@ -24,7 +24,7 @@ class RouteReward:
         vehicle_transform: carla.Transform, 
         waypoint_transform: carla.Transform,
         v_vector: carla.Vector3D,
-        distance_threshold: floate = 2.5,
+        distance_threshold: float = 2.5,
     ) -> float:
         # minimum distance from the list of route points
         distances = [
