@@ -36,10 +36,7 @@ class CarlaEnv:
         self.bp_lib = self.world.get_blueprint_library()
 
         # set weather
-        self.world.set_weather(
-            # carla.WeatherParameters(cloudyness=1, precipitation=1, precipitation_deposits=0, wind_intensity=0.35, sun_azimuth_angle=0, sun_altitude_angle=75)
-            carla.WeatherParameters.CloudyNoon
-        )
+        self.world.set_weather(carla.WeatherParameters.CloudyNoon)
 
         # no rendering
         if cfg.NO_RENDERING_MODE:
