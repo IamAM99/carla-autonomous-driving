@@ -60,7 +60,7 @@ try:
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
 except IndexError:
     pass
-
+ 
 sys.path.append("../carla")
 
 # ==============================================================================
@@ -82,6 +82,8 @@ import random
 import re
 import weakref
 import pickle
+import time
+
 from reward_functions import RouteReward
 import route
 
@@ -188,7 +190,8 @@ class World(object):
         while self.player is None:
             spawn_points = self.map.get_spawn_points()
             # spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
-            spawn_point = spawn_points[1] if spawn_points else carla.Transform()
+            spawn_point = spawn_points[101] if spawn_points else carla.Transform()
+            # draw_locations(self.world, spawn_points)
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
         # Set up the sensors.
         self.collision_sensor = CollisionSensor(self.player, self.hud)
