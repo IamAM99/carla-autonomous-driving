@@ -155,17 +155,17 @@ class CarlaEnv:
 
         # check if done and get the reward value
         if (len(self.collision_hist) != 0) or self.crossed_lane:
-            done = True
+            is_done = True
             reward = cfg.COLLISION_REWARD
         elif self._calc_distance(self.vehicle_transform.location, self.route_points[-1].location) < cfg.GOAL_DISTANCE_THRESHOLD:
-            done = True
+            is_done = True
             reward = cfg.GOAL_REACHED_REWARD
         else:
-            done = False
+            is_done = False
 
         # end the training if time limit is reached
         if self.episode_start + cfg.SECONDS_PER_EPISODE < time.time():
-            done = True
+            is_done = True
 
         # create the states dictionary
         states = {
@@ -176,7 +176,7 @@ class CarlaEnv:
             "v_kmh": v_kmh,
         }
 
-        return states, reward, done, None
+        return states, reward, is_done, None
 
     def clear(self):
         all_actors = self.world.get_actors()
