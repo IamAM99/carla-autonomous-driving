@@ -800,14 +800,15 @@ def game_loop(args):
             waypoint_transform = world.map.get_waypoint(vehicle_transform.location).transform
             print(reward.get(vehicle_transform, waypoint_transform, world.player.get_velocity())[1])
             
-            # try:
-            #     loc = world.player.get_transform().location
-            #     waypoint = world.map.get_waypoint(loc)
-            #     if (not waypoints) or (waypoint.transform != waypoints[-1].transform):
-            #         waypoints.append(waypoint)
-            #         print(waypoint.transform.location.x)
-            # except:
-            #     pass
+            if args.create_new_route:
+                try:
+                    loc = world.player.get_transform().location
+                    waypoint = world.map.get_waypoint(loc)
+                    if (not waypoints) or (waypoint.transform != waypoints[-1].transform):
+                        waypoints.append(waypoint)
+                        print(waypoint.transform.location.x)
+                except:
+                    pass
 
 
             pygame.display.flip()
@@ -821,7 +822,7 @@ def game_loop(args):
             world.destroy()
         
         try:
-            if waypoints:
+            if args.create_new_route:
                 x_ = [w.transform.location.x for w in waypoints]
                 y_ = [w.transform.location.y for w in waypoints]
                 z_ = [w.transform.location.z for w in waypoints]
@@ -896,6 +897,11 @@ def main():
         metavar='NAME',
         default='hero',
         help='actor role name (default: "hero")')
+    argparser.add_argument(
+        '--newroute',
+        action='store_false',
+        dest='create_new_route',
+        help='enable creating a new route and saving it to the route.pickle file')
     args = argparser.parse_args()
 
     args.width, args.height = [int(x) for x in args.res.split('x')]
