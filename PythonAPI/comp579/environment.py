@@ -70,23 +70,28 @@ class CarlaEnv:
             settings.no_rendering_mode = False
             self.world.apply_settings(settings)
 
-        # the car blueprint
+        # the vehicle
         self.model_3 = self.bp_lib.find("vehicle.tesla.model3")
-        
-        # initialization of other attributes
-        self.collision_hist: list = []
-        self.actor_list: list = []
         self.car_spawn_point: carla.Transform = None
         self.vehicle: carla.Actor = None
-        self.camera: carla.Sensor = None
-        self.collision_sensor: carla.Sensor = None
-        self.episode_start: float = time.time()
-        self.front_camera: np.typing.ArrayLike = None
         self.vehicle_transform: carla.Transform = None
         self.waypoint: carla.Waypoint = None
-        self.waypoints: np.typing.ArrayLike = None # [x_column; y_column]
+        self.waypoints: np.typing.ArrayLike = None # [x_column; y_column; z_column]
+        
+        # sensors
+        self.camera: carla.Sensor = None
+        self.front_camera: np.typing.ArrayLike = None # output of the front camera
+        self.collision_sensor: carla.Sensor = None
+        self.collision_hist: list = []
+        self.lane_sensor: carla.Sensor = None
+
+        # initialization of other attributes
+        self.actor_list: list = []
+        self.episode_start: float = time.time()
 
     def reset(self, car_spawn_point: carla.Location = None, *args, **kwargs):
+        self.clear()
+
         if car_spawn_point is None:
             car_spawn_point = self.spawn_points[101]
         self.car_spawn_point = car_spawn_point
@@ -107,8 +112,9 @@ class CarlaEnv:
         while self.front_camera is None:
             time.sleep(0.01)
 
-        # set up collision sensor (after the vehicle settled)
+        # set up other sensors (after the vehicle settled)
         self._spawn_col_sensor()
+        self._spawn_lane_sensor()
 
         # set starting time
         self.episode_start = time.time()
@@ -176,15 +182,30 @@ class CarlaEnv:
 
     def clear(self):
         all_actors = self.world.get_actors()
-        for vehicle in all_actors.filter("*vehicle*"):
-            vehicle.destroy()
-            print("Destroyed a vehicle")
-        
+        # print(all_actors.filter("*sensor*"))
         for sensor in all_actors.filter("*sensor*"):
+            # print(sensor)
             if sensor.is_listening:
                 sensor.stop()
-            sensor.destroy()
-            print("Destroyed a sensor")
+            destroyed_sucessfully = sensor.destroy()
+
+            # if destroyed_sucessfully:
+            #     print(f"Destroyed {sensor.type_id}")
+            # else:
+            #     print(f"Couldn't destroy {sensor.type_id}")
+
+        all_actors = self.world.get_actors()
+        # print(all_actors.filter("*sensor*"))
+
+        for vehicle in all_actors.filter("*vehicle*"):
+            destroyed_sucessfully = vehicle.destroy()
+
+            # if destroyed_sucessfully:
+            #     print(f"Destroyed {vehicle.type_id}")
+            # else:
+            #     print(f"Couldn't destroy {vehicle.type_id}")
+        
+        
 
         # self.actor_list = []
 
@@ -256,13 +277,21 @@ class CarlaEnv:
         return self.camera
 
     def _spawn_col_sensor(self):
-        colsensor = self.bp_lib.find("sensor.other.collision")
-        self.collision_sensor = self.world.spawn_actor(colsensor, transform=carla.Transform(), attach_to=self.vehicle)
+        col_sensor = self.bp_lib.find("sensor.other.collision")
+        self.collision_sensor = self.world.spawn_actor(col_sensor, transform=carla.Transform(), attach_to=self.vehicle)
         self.actor_list.append(self.collision_sensor)
         self.collision_sensor.listen(lambda event: self._collision_data(event))
 
         return self.collision_sensor
+    
+    def _spawn_lane_sensor(self):
+        lane_sensor = self.bp_lib.find("sensor.other.lane_invasion")
+        self.lane_sensor = self.world.spawn_actor(lane_sensor, transform=carla.Transform(), attach_to=self.vehicle)
+        self.actor_list.append(self.lane_sensor)
+        self.lane_sensor.listen(lambda event: self._lane_data(event))
 
+        return self.collision_sensor
+    
     def _process_img(self, data):
         self.front_camera = np.array(data.raw_data).reshape((cfg.IM_HEIGHT, cfg.IM_WIDTH, 4))[:, :, :3]
 
@@ -288,6 +317,11 @@ class CarlaEnv:
         print((name[:truncate - 1] + u'\u2026') if len(name) > truncate else name)
 
         self.collision_hist.append(event)
+
+    def _lane_data(self, event):
+        lane_types = set(x.type for x in event.crossed_lane_markings)
+        if carla.libcarla.LaneMarkingType.SolidSolid in lane_types:
+            self.crossed_center_line = True
     
 def get_transform(vehicle_location, angle=-90, d=3):
     """ Get the transform for the spectator view
