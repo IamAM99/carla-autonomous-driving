@@ -87,7 +87,6 @@ class CarlaEnv:
         self.crossed_center_line: bool = False
 
         # initialization of other attributes
-        self.actor_list: list = []
         self.episode_start: float = time.time()
 
     def reset(self, car_spawn_point: carla.Location = None, *args, **kwargs):
@@ -96,8 +95,6 @@ class CarlaEnv:
         if car_spawn_point is None:
             car_spawn_point = self.spawn_points[101]
         self.car_spawn_point = car_spawn_point
-        self.collision_hist = []
-        self.actor_list = []
 
         self._spawn_vehicle()
         self._spawn_camera()
@@ -183,35 +180,19 @@ class CarlaEnv:
 
     def clear(self):
         all_actors = self.world.get_actors()
-        # print(all_actors.filter("*sensor*"))
         for sensor in all_actors.filter("*sensor*"):
-            # print(sensor)
             if sensor.is_listening:
                 sensor.stop()
             destroyed_sucessfully = sensor.destroy()
 
-            # if destroyed_sucessfully:
-            #     print(f"Destroyed {sensor.type_id}")
-            # else:
-            #     print(f"Couldn't destroy {sensor.type_id}")
-
         all_actors = self.world.get_actors()
-        # print(all_actors.filter("*sensor*"))
 
         for vehicle in all_actors.filter("*vehicle*"):
             destroyed_sucessfully = vehicle.destroy()
-
-            # if destroyed_sucessfully:
-            #     print(f"Destroyed {vehicle.type_id}")
-            # else:
-            #     print(f"Couldn't destroy {vehicle.type_id}")
         
         self.crossed_center_line = False
+        self.collision_hist = []
         
-        
-
-        # self.actor_list = []
-
     def _update_loc_waypoint(self) -> Tuple[carla.Transform, carla.Waypoint]:
         self.vehicle_transform = self.vehicle.get_transform()
         self.waypoint = self.map.get_waypoint(self.vehicle_transform.location)
@@ -256,8 +237,6 @@ class CarlaEnv:
 
         self.vehicle = self.world.spawn_actor(self.model_3, self.car_spawn_point)
         
-        self.actor_list.append(self.vehicle)
-
         self._update_loc_waypoint()
         self._update_waypoints()
 
@@ -273,8 +252,6 @@ class CarlaEnv:
 
         self.camera = self.world.spawn_actor(cam_bp, spawn_point, attach_to=self.vehicle)
 
-        self.actor_list.append(self.camera)
-
         self.camera.listen(lambda data: self._process_img(data)) # start capturing the image
  
         return self.camera
@@ -282,7 +259,6 @@ class CarlaEnv:
     def _spawn_col_sensor(self):
         col_sensor = self.bp_lib.find("sensor.other.collision")
         self.collision_sensor = self.world.spawn_actor(col_sensor, transform=carla.Transform(), attach_to=self.vehicle)
-        self.actor_list.append(self.collision_sensor)
         self.collision_sensor.listen(lambda event: self._collision_data(event))
 
         return self.collision_sensor
@@ -290,7 +266,6 @@ class CarlaEnv:
     def _spawn_lane_sensor(self):
         lane_sensor = self.bp_lib.find("sensor.other.lane_invasion")
         self.lane_sensor = self.world.spawn_actor(lane_sensor, transform=carla.Transform(), attach_to=self.vehicle)
-        self.actor_list.append(self.lane_sensor)
         self.lane_sensor.listen(lambda event: self._lane_data(event))
 
         return self.collision_sensor
