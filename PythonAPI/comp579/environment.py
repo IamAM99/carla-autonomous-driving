@@ -84,6 +84,7 @@ class CarlaEnv:
         self.collision_sensor: carla.Sensor = None
         self.collision_hist: list = []
         self.lane_sensor: carla.Sensor = None
+        self.crossed_center_line: bool = False
 
         # initialization of other attributes
         self.actor_list: list = []
@@ -156,7 +157,7 @@ class CarlaEnv:
         )
 
         # check if done and get the reward value
-        if len(self.collision_hist) != 0:
+        if (len(self.collision_hist) != 0) or self.crossed_lane:
             done = True
             reward = cfg.COLLISION_REWARD
         elif self._calc_distance(self.vehicle_transform.location, self.route_points[-1].location) < cfg.GOAL_DISTANCE_THRESHOLD:
@@ -204,6 +205,8 @@ class CarlaEnv:
             #     print(f"Destroyed {vehicle.type_id}")
             # else:
             #     print(f"Couldn't destroy {vehicle.type_id}")
+        
+        self.crossed_center_line = False
         
         
 
