@@ -30,33 +30,43 @@ def main():
     try:
         env.reset()
         
-        states, reward, _, _ = env.step(0)
-        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        states, reward, is_done, _ = env.step(0)
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}, speed = {states['v_kmh']:.2f}, phi = {states['phi']:.2f}")
+        print(f"Is done? {is_done}")
         print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(2)
 
-        states, reward, _, _ = env.step(1)
-        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        states, reward, is_done, _ = env.step(1)
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}, speed = {states['v_kmh']:.2f}, phi = {states['phi']:.2f}")
+        print(f"Is done? {is_done}")
         print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(1)
 
-        states, reward, _, _ = env.step(0)
-        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        states, reward, is_done, _ = env.step(0)
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}, speed = {states['v_kmh']:.2f}, phi = {states['phi']:.2f}")
+        print(f"Is done? {is_done}")
         print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(1)
 
-        states, reward, _, _ = env.step(2)
-        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        states, reward, is_done, _ = env.step(2)
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}, speed = {states['v_kmh']:.2f}, phi = {states['phi']:.2f}")
+        print(f"Is done? {is_done}")
         print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(1)
 
-        states, reward, _, _ = env.step(0)
-        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        states, reward, is_done, _ = env.step(0)
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}, speed = {states['v_kmh']:.2f}, phi = {states['phi']:.2f}")
+        print(f"Is done? {is_done}")
         print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(2)
 
+        # test reset functionality
         env.reset()
-        env.step(0)
+
+        states, reward, is_done, _ = env.step(0)
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}, speed = {states['v_kmh']:.2f}, phi = {states['phi']:.2f}")
+        print(f"Is done? {is_done}")
+        print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(2)
 
     finally:
