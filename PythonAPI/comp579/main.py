@@ -3,6 +3,7 @@ import os
 import sys
 
 import time
+import numpy as np
 
 from environment import CarlaEnv
 
@@ -19,6 +20,8 @@ sys.path.append("../carla")
 import carla
 from agents.tools.misc import draw_locations
 
+np.set_printoptions(precision=3, suppress=True)
+
 def main():
     env = CarlaEnv()
     draw_locations(env.world, env.route_points[:-1])
@@ -28,28 +31,28 @@ def main():
         env.reset()
         
         states, reward, _, _ = env.step(0)
-        print(f"R = {reward:.2f}")
-        print(states["waypoints"])
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(2)
 
         states, reward, _, _ = env.step(1)
-        print(f"R = {reward:.2f}")
-        print(states["waypoints"])
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(1)
 
         states, reward, _, _ = env.step(0)
-        print(f"R = {reward:.2f}")
-        print(states["waypoints"])
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(1)
 
         states, reward, _, _ = env.step(2)
-        print(f"R = {reward:.2f}")
-        print(states["waypoints"])
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(1)
 
         states, reward, _, _ = env.step(0)
-        print(f"R = {reward:.2f}")
-        print(states["waypoints"])
+        print(f"R = {reward:.2f}, distance = {states['d']:.2f}")
+        print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(2)
 
     finally:
