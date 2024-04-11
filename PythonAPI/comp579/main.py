@@ -55,6 +55,10 @@ def main():
         print(f"Waypoints: \n{states['waypoints']}")
         time.sleep(2)
 
+        env.reset()
+        env.step(0)
+        time.sleep(2)
+
     finally:
         env.clear()
         print("Cleared successfully")
