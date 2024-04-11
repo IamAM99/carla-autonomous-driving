@@ -27,10 +27,13 @@ from agents.tools.misc import draw_waypoints
 
 
 class CarlaEnv:
-    def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, *args, **kwargs):
+    def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, num_next_waypoints: int = 5, *args, **kwargs):
         # make a connection to the server
         self.client = carla.Client(host, port)
         self.client.set_timeout(2.0)
+
+        # control parameters
+        self.num_next_waypoints = num_next_waypoints
 
         # get the route transforms
         self.route_points: List[carla.Transform] = route.get_transforms(point_distance=4)
@@ -83,7 +86,7 @@ class CarlaEnv:
         self.waypoint: carla.Waypoint = None
         self.waypoints: np.typing.ArrayLike = None # [x_column; y_column]
 
-    def reset(self, car_spawn_point=None, *args, **kwargs):
+    def reset(self, car_spawn_point: carla.Location = None, *args, **kwargs):
         if car_spawn_point is None:
             car_spawn_point = self.spawn_points[101]
         self.car_spawn_point = car_spawn_point
@@ -191,15 +194,36 @@ class CarlaEnv:
 
         return self.vehicle_transform, self.waypoint
     
-    def _update_waypoints(self, num_items=5) -> List[carla.Waypoint]:
+    def _update_waypoints(self) -> List[carla.Waypoint]:
         self.waypoints = [self.waypoint]
-        while len(self.waypoints) < num_items:
+        while len(self.waypoints) < self.num_next_waypoints:
             self.waypoints += self.waypoints[-1].next(10)
         
-        # print(self.waypoints[0])
-        draw_waypoints(self.world, self.waypoints[:num_items])
-        self.waypoints = np.array([[w.transform.location.x, w.transform.location.y] for w in self.waypoints[:num_items]])
+        # show the waypoints in the game
+        draw_waypoints(self.world, self.waypoints[:self.num_next_waypoints])
 
+        # yaw angle and the location coordinates of the vehicle
+        phi_c = self.vehicle_transform.rotation.yaw
+        loc_c = self.vehicle_transform.location
+
+        # rotation matrix which rotates with respect to the vehicle's facing direction
+        rotation_matrix = np.array(
+            [
+                [np.cos(phi_c), np.sin(phi_c), 0],
+                [-np.sin(phi_c), np.cos(phi_c), 0],
+                [0, 0, 1],
+            ]
+        )
+
+        # apply the translation and rotation on the waypoints
+        transformed_waypoints = []
+        for waypoint in self.waypoints[:self.num_next_waypoints]:
+            w_loc = waypoint.transform.location - loc_c
+            new_w_loc = rotation_matrix @ np.array([w_loc.x, w_loc.y, w_loc.z]).T
+            transformed_waypoints.append(new_w_loc)
+
+        self.waypoints = np.array(transformed_waypoints)
+        
         return self.waypoints
 
     def _spawn_vehicle(self):
