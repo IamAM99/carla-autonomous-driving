@@ -899,7 +899,7 @@ def main():
         help='actor role name (default: "hero")')
     argparser.add_argument(
         '--newroute',
-        action='store_false',
+        action='store_true',
         dest='create_new_route',
         help='enable creating a new route and saving it to the route.pickle file')
     args = argparser.parse_args()
