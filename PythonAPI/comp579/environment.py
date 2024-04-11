@@ -190,8 +190,16 @@ class CarlaEnv:
         for vehicle in all_actors.filter("*vehicle*"):
             destroyed_sucessfully = vehicle.destroy()
         
-        self.crossed_center_line = False
+        self.waypoint = None
+        self.waypoints = None
+        self.vehicle = None
+        self.vehicle_transform = None
+        self.camera = None
+        self.front_camera = None
+        self.collision_sensor = None
         self.collision_hist = []
+        self.lane_sensor = None
+        self.crossed_center_line = False
         
     def _update_loc_waypoint(self) -> Tuple[carla.Transform, carla.Waypoint]:
         self.vehicle_transform = self.vehicle.get_transform()
