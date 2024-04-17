@@ -41,8 +41,6 @@ class DQNAgent:
             episode_reward = 0
             
             for timestep in range(1, cfg.MAX_STEPS_PER_EPISODE):
-                print()
-                print(frame_count, end="")
                 frame_count += 1
 
                 # taking epsilon-greedy action
@@ -129,6 +127,7 @@ class DQNAgent:
                     del done_history[:1]
 
                 if done:
+                    print(f"Episode {episode_count} done at frame {frame_count}")
                     break
 
             # Update running reward to check condition for solving
