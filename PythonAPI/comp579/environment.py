@@ -30,7 +30,7 @@ class CarlaEnv:
     def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, *args, **kwargs):
         # make a connection to the server
         self.client = carla.Client(host, port)
-        self.client.set_timeout(2.0)
+        self.client.set_timeout(4.0)
 
         # control parameters
         self.num_waypoints = cfg.NUM_WAYPOINT_FEATURES
