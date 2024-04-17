@@ -6,7 +6,6 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np 
 
-from environment import CarlaEnv
 
 class DQNAgent:
     max_steps_per_episode = 10000
@@ -15,9 +14,20 @@ class DQNAgent:
     IMG_WIDTH = 84
     FEATURE_LENGTH = 8
     
-    def __init__(self, gamma=0.99, epsilon=1.0, epsilon_min=0.1,
-                 epsilon_max=1.0, batch_size=32, model_type="mlp",
-                 optimizer=keras.optimizers.Adam, learning_rate=0.01, num_actions=4):
+    def __init__(
+        self, 
+        env, 
+        gamma=0.99,
+        epsilon=1.0,
+        epsilon_min=0.1,
+        epsilon_max=1.0,
+        batch_size=32,
+        model_type="mlp",
+        optimizer=keras.optimizers.Adam,
+        learning_rate=0.01,
+        num_actions=4,
+    ):
+        self.env = env
         self.gamma = gamma
         self.epsilon = epsilon
         self.min_epsilon = epsilon_min
@@ -98,12 +108,9 @@ class DQNAgent:
         # How often to update the target network
         update_target_network = 1000
         
-        # initialize the environment
-        env = CarlaEnv()
-        
         while True:
             # resetting the environment
-            state = env.reset()
+            state = self.env.reset()
             state = self._model_input(state)
             
             episode_reward = 0
@@ -125,7 +132,7 @@ class DQNAgent:
                 self.epsilon = max(self.epsilon, self.min_epsilon)
                 
                 # taking the action
-                next_state, reward, done, _ = env.step(action)
+                next_state, reward, done, _ = self.env.step(action)
                 next_state = self._model_input(next_state)
                 episode_reward += reward
                 
