@@ -11,16 +11,9 @@ import config as cfg
 
 class DQNAgent:
     def __init__(self, env):
-        self.env = env
-        self.gamma = cfg.GAMMA
+        self.env = env 
         self.epsilon = cfg.EPSILON
-        self.min_epsilon = cfg.EPSILON_MIN
-        self.max_epsilon = cfg.EPSILON_MAX
-        self.epsilon_interval = cfg.EPSILON_MAX - cfg.EPSILON_MIN
-        self.batch_size = cfg.BATCH_SIZE 
-        self.model_type = cfg.MODEL_TYPE  
         self.optimizer = cfg.OPTIMIZER_FUNC(learning_rate=cfg.LEARNING_RATE)
-        # self.loss_fcn = loss_fcn  
         self.num_actions = len(cfg.ACTIONS)
     
     def update(self,):
@@ -53,7 +46,7 @@ class DQNAgent:
                 frame_count += 1
 
                 # taking epsilon-greedy action
-                if frame_count < cfg.NUM_RANDOM_FRAMES or self.epsilon > np.random.rand(1)[0]:
+                if frame_count < cfg.NUM_RANDOM_FRAMES or cfg.EPSILON > np.random.rand(1)[0]:
                     action = np.random.choice(self.num_actions)
                 else:
                     # taking actions based on Q-value estimations
@@ -63,8 +56,8 @@ class DQNAgent:
                     action = action_probs.argmax(axis=1).item()
                     
                 # decay the epsilon
-                self.epsilon -= self.epsilon_interval/cfg.NUM_GREEDY_FRAMES
-                self.epsilon = max(self.epsilon, self.min_epsilon)
+                self.epsilon -= (cfg.EPSILON_MAX - cfg.EPSILON_MIN) / cfg.NUM_GREEDY_FRAMES
+                self.epsilon = max(self.epsilon, cfg.EPSILON_MIN)
                 
                 # taking the action
                 next_state, reward, done, _ = self.env.step(action)
@@ -82,9 +75,9 @@ class DQNAgent:
                 state = next_state
 
                 # Update every fourth frame and once batch size is over 32
-                if frame_count % cfg.MODEL_COOLDOWN_FRAMES == 0 and len(done_history) > self.batch_size:
+                if frame_count % cfg.MODEL_COOLDOWN_FRAMES == 0 and len(done_history) > cfg.BATCH_SIZE:
                     # Get indices of samples for replay buffers
-                    indices = np.random.choice(range(len(done_history)), size=self.batch_size)
+                    indices = np.random.choice(range(len(done_history)), size=cfg.BATCH_SIZE)
 
                     # Using list comprehension to sample from replay buffer
                     state_sample = np.array([state_history[i] for i in indices])
@@ -99,7 +92,7 @@ class DQNAgent:
                     # Use the target model for stability
                     future_rewards = model_target.predict(state_next_sample)
                     # Q value = reward + discount factor * expected future reward
-                    updated_q_values = rewards_sample + self.gamma * tf.reduce_max(future_rewards, axis=1)
+                    updated_q_values = rewards_sample + cfg.GAMMA * tf.reduce_max(future_rewards, axis=1)
 
                     # If final frame set the last value to -1
                     updated_q_values = updated_q_values * (1 - done_sample) - done_sample
@@ -161,7 +154,7 @@ class DQNAgent:
 
 
     def _create_q_model(self):
-        if self.model_type == "cnn":
+        if cfg.MODEL_TYPE == "cnn":
             return keras.Sequential(
                 [
                     # Convolutions on the frames on the screen
@@ -177,7 +170,7 @@ class DQNAgent:
                     layers.Dense(self.num_actions, activation="linear"),
                 ]
             )
-        elif self.model_type == "mlp":
+        elif cfg.MODEL_TYPE == "mlp":
             return keras.Sequential(
                 [
                     layers.Dense(100, activation="relu", input_shape=(cfg.NUM_WAYPOINT_FEATURES+3,)),
@@ -190,12 +183,12 @@ class DQNAgent:
             raise ValueError('Model type should be "mlp" or "cnn".')
 
     def _reshape_input(self, state):
-        if self.model_type == "mlp":
+        if cfg.MODEL_TYPE == "mlp":
             state = np.concatenate((state["waypoints"][:, 0],
                                     np.array([state["d"]]),
                                     np.array([state["phi"]]),
                                     np.array([state["v_kmh"]])))
-        if self.model_type == "cnn":
+        if cfg.MODEL_TYPE == "cnn":
             state = state["image"]
         
         return state
