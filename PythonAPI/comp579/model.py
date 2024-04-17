@@ -23,52 +23,12 @@ class DQNAgent:
         # self.loss_fcn = loss_fcn  
         self.num_actions = len(cfg.ACTIONS)
     
-    def create_q_model(self):
-        if self.model_type == "cnn":
-            return keras.Sequential(
-                [
-                    # Convolutions on the frames on the screen
-                    layers.Lambda(lambda tensor: tf.transpose(tensor, [0, 2, 3, 1]),
-                        output_shape=(cfg.IM_HEIGHT, cfg.IM_WIDTH, 4),
-                        input_shape=(4, cfg.IM_HEIGHT, cfg.IM_WIDTH),
-                    ),
-                    layers.Conv2D(32, 8, strides=4, activation="relu", input_shape=(4, cfg.IM_HEIGHT, cfg.IM_WIDTH)),
-                    layers.Conv2D(64, 4, strides=2, activation="relu"),
-                    layers.Conv2D(64, 3, strides=1, activation="relu"),
-                    layers.Flatten(),
-                    layers.Dense(512, activation="relu"),
-                    layers.Dense(self.num_actions, activation="linear"),
-                ]
-            )
-        elif self.model_type == "mlp":
-            return keras.Sequential(
-                [
-                    layers.Dense(100, activation="relu", input_shape=(cfg.NUM_WAYPOINT_FEATURES+3,)),
-                    layers.Dense(200, activation="relu"),
-                    layers.Dense(self.num_actions, activation="linear"),
-                ]
-            )
-        
-        else:
-            raise ValueError('Model type should be "mlp" or "cnn".')
-    
     def update(self,):
         pass
     
-    def _model_input(self, state):
-        if self.model_type == "mlp":
-            state = np.concatenate((state["waypoints"][:, 0],
-                                    np.array([state["d"]]),
-                                    np.array([state["phi"]]),
-                                    np.array([state["v_kmh"]])))
-        if self.model_type == "cnn":
-            state = state["image"]
-        
-        return state
-    
     def train(self,):
-        model = self.create_q_model()
-        model_target = self.create_q_model()
+        model = self._create_q_model()
+        model_target = self._create_q_model()
         # Experience history
         action_history = []
         state_history = []
@@ -96,7 +56,7 @@ class DQNAgent:
             # resetting the environment
             state = self.env.reset()
             print(state["waypoints"])
-            state = self._model_input(state)
+            state = self._reshape_input(state)
             
             episode_reward = 0
             
@@ -119,7 +79,7 @@ class DQNAgent:
                 
                 # taking the action
                 next_state, reward, done, _ = self.env.step(action)
-                next_state = self._model_input(next_state)
+                next_state = self._reshape_input(next_state)
                 episode_reward += reward
                 
                 # saving the actions, rewards and states
@@ -209,3 +169,44 @@ class DQNAgent:
     
     def predict(self,):
         pass
+
+
+    def _create_q_model(self):
+        if self.model_type == "cnn":
+            return keras.Sequential(
+                [
+                    # Convolutions on the frames on the screen
+                    layers.Lambda(lambda tensor: tf.transpose(tensor, [0, 2, 3, 1]),
+                        output_shape=(cfg.IM_HEIGHT, cfg.IM_WIDTH, 4),
+                        input_shape=(4, cfg.IM_HEIGHT, cfg.IM_WIDTH),
+                    ),
+                    layers.Conv2D(32, 8, strides=4, activation="relu", input_shape=(4, cfg.IM_HEIGHT, cfg.IM_WIDTH)),
+                    layers.Conv2D(64, 4, strides=2, activation="relu"),
+                    layers.Conv2D(64, 3, strides=1, activation="relu"),
+                    layers.Flatten(),
+                    layers.Dense(512, activation="relu"),
+                    layers.Dense(self.num_actions, activation="linear"),
+                ]
+            )
+        elif self.model_type == "mlp":
+            return keras.Sequential(
+                [
+                    layers.Dense(100, activation="relu", input_shape=(cfg.NUM_WAYPOINT_FEATURES+3,)),
+                    layers.Dense(200, activation="relu"),
+                    layers.Dense(self.num_actions, activation="linear"),
+                ]
+            )
+        
+        else:
+            raise ValueError('Model type should be "mlp" or "cnn".')
+
+    def _reshape_input(self, state):
+        if self.model_type == "mlp":
+            state = np.concatenate((state["waypoints"][:, 0],
+                                    np.array([state["d"]]),
+                                    np.array([state["phi"]]),
+                                    np.array([state["v_kmh"]])))
+        if self.model_type == "cnn":
+            state = state["image"]
+        
+        return state
