@@ -1,4 +1,5 @@
 from typing import Dict
+import tensorflow as tf
 
 # Client
 HOST_IP: str = "127.0.0.1"
@@ -29,3 +30,19 @@ LOCK_SPECTATOR_VIEW: bool = False
 # Simulation
 NO_RENDERING_MODE: bool = False
 SECONDS_PER_EPISODE: float = 10.0
+
+# Training
+MAX_EPISODES: int = 10
+MAX_STEPS_PER_EPISODE: int = 10000
+
+# Model
+MODEL_TYPE: str = "mlp" # "mlp" or "cnn"
+GAMMA: float = 0.99
+EPSILON: float = 1.0
+EPSILON_MIN: float = 0.1
+EPSILON_MAX: float = 1.0
+BATCH_SIZE: int = 32
+OPTIMIZER_FUNC = tf.keras.optimizers.Adam
+LEARNING_RATE: float = 0.01
+num_actions = 4
+NUM_WAYPOINT_FEATURES: int = 6 # number of waypoints to pass into the feature list

@@ -6,38 +6,22 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np 
 
+import config as cfg
+
 
 class DQNAgent:
-    max_steps_per_episode = 10000
-    max_episodes = 10
-    IMG_HEIGHT = 84
-    IMG_WIDTH = 84
-    FEATURE_LENGTH = 8
-    
-    def __init__(
-        self, 
-        env, 
-        gamma=0.99,
-        epsilon=1.0,
-        epsilon_min=0.1,
-        epsilon_max=1.0,
-        batch_size=32,
-        model_type="mlp",
-        optimizer=keras.optimizers.Adam,
-        learning_rate=0.01,
-        num_actions=4,
-    ):
+    def __init__(self, env):
         self.env = env
-        self.gamma = gamma
-        self.epsilon = epsilon
-        self.min_epsilon = epsilon_min
-        self.max_epsilon = epsilon_max
-        self.epsilon_interval = epsilon_max - epsilon_min
-        self.batch_size = batch_size 
-        self.model_type = model_type  
-        self.optimizer = optimizer(learning_rate=learning_rate)
+        self.gamma = cfg.GAMMA
+        self.epsilon = cfg.EPSILON
+        self.min_epsilon = cfg.EPSILON_MIN
+        self.max_epsilon = cfg.EPSILON_MAX
+        self.epsilon_interval = cfg.EPSILON_MAX - cfg.EPSILON_MIN
+        self.batch_size = cfg.BATCH_SIZE 
+        self.model_type = cfg.MODEL_TYPE  
+        self.optimizer = cfg.OPTIMIZER_FUNC(learning_rate=cfg.LEARNING_RATE)
         # self.loss_fcn = loss_fcn  
-        self.num_actions = num_actions
+        self.num_actions = len(cfg.ACTIONS)
     
     def create_q_model(self):
         if self.model_type == "cnn":
@@ -45,10 +29,10 @@ class DQNAgent:
                 [
                     # Convolutions on the frames on the screen
                     layers.Lambda(lambda tensor: tf.transpose(tensor, [0, 2, 3, 1]),
-                        output_shape=(self.IMG_HEIGHT, self.IMG_WIDTH, 4),
-                        input_shape=(4, self.IMG_HEIGHT, self.IMG_WIDTH),
+                        output_shape=(cfg.IM_HEIGHT, cfg.IM_WIDTH, 4),
+                        input_shape=(4, cfg.IM_HEIGHT, cfg.IM_WIDTH),
                     ),
-                    layers.Conv2D(32, 8, strides=4, activation="relu", input_shape=(4, self.IMG_HEIGHT, self.IMG_WIDTH)),
+                    layers.Conv2D(32, 8, strides=4, activation="relu", input_shape=(4, cfg.IM_HEIGHT, cfg.IM_WIDTH)),
                     layers.Conv2D(64, 4, strides=2, activation="relu"),
                     layers.Conv2D(64, 3, strides=1, activation="relu"),
                     layers.Flatten(),
@@ -59,7 +43,7 @@ class DQNAgent:
         elif self.model_type == "mlp":
             return keras.Sequential(
                 [
-                    layers.Dense(100, activation="relu", input_shape=(self.FEATURE_LENGTH,)),
+                    layers.Dense(100, activation="relu", input_shape=(cfg.NUM_WAYPOINT_FEATURES+3,)),
                     layers.Dense(200, activation="relu"),
                     layers.Dense(self.num_actions, activation="linear"),
                 ]
@@ -111,11 +95,12 @@ class DQNAgent:
         while True:
             # resetting the environment
             state = self.env.reset()
+            print(state["waypoints"])
             state = self._model_input(state)
             
             episode_reward = 0
             
-            for timestep in range(1, self.max_steps_per_episode):
+            for timestep in range(1, cfg.MAX_STEPS_PER_EPISODE):
                 frame_count += 1
                 
                 # taking epsilon-greedy action
@@ -217,7 +202,7 @@ class DQNAgent:
                 break
 
             if (
-                self.max_episodes > 0 and episode_count >= self.max_episodes
+                cfg.MAX_EPISODES > 0 and episode_count >= cfg.MAX_EPISODES
             ):  # Maximum number of episodes reached
                 print("Stopped at episode {}!".format(episode_count))
                 break

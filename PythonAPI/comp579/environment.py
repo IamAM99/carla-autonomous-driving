@@ -27,13 +27,13 @@ from agents.tools.misc import draw_waypoints
 
 
 class CarlaEnv:
-    def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, num_next_waypoints: int = 5, *args, **kwargs):
+    def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, *args, **kwargs):
         # make a connection to the server
         self.client = carla.Client(host, port)
         self.client.set_timeout(2.0)
 
         # control parameters
-        self.num_next_waypoints = num_next_waypoints
+        self.num_waypoints = cfg.NUM_WAYPOINT_FEATURES
 
         # get the route transforms
         self.route_points: List[carla.Transform] = route.get_transforms(point_distance=4)
@@ -209,11 +209,11 @@ class CarlaEnv:
     
     def _update_waypoints(self) -> List[carla.Waypoint]:
         self.waypoints = [self.waypoint]
-        while len(self.waypoints) < self.num_next_waypoints:
+        while len(self.waypoints) < self.num_waypoints:
             self.waypoints += self.waypoints[-1].next(10)
         
         # show the waypoints in the game
-        draw_waypoints(self.world, self.waypoints[:self.num_next_waypoints])
+        draw_waypoints(self.world, self.waypoints[:self.num_waypoints])
 
         # yaw angle and the location coordinates of the vehicle
         phi_c = self.vehicle_transform.rotation.yaw
@@ -230,7 +230,7 @@ class CarlaEnv:
 
         # apply the translation and rotation on the waypoints
         transformed_waypoints = []
-        for waypoint in self.waypoints[:self.num_next_waypoints]:
+        for waypoint in self.waypoints[:self.num_waypoints]:
             w_loc = waypoint.transform.location - loc_c
             new_w_loc = rotation_matrix @ np.array([w_loc.x, w_loc.y, w_loc.z]).T
             transformed_waypoints.append(new_w_loc)
