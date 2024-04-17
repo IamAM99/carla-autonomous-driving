@@ -40,31 +40,20 @@ class DQNAgent:
         episode_count = 0
         frame_count = 0
         
-        # Number of frames to take random action and observe output
-        epsilon_random_frames = 500
-        # Number of frames for exploration
-        epsilon_greedy_frames = 1000.0
-        # Maximum replay length
-        # Note: The Deepmind paper suggests 1000000 however this causes memory issues
-        max_memory_length = 100000
-        # Train the model after 4 actions
-        update_after_actions = 4
-        # How often to update the target network
-        update_target_network = 1000
-        
         while True:
             # resetting the environment
             state = self.env.reset()
-            print(state["waypoints"])
             state = self._reshape_input(state)
             
             episode_reward = 0
             
             for timestep in range(1, cfg.MAX_STEPS_PER_EPISODE):
+                print()
+                print(frame_count, end="")
                 frame_count += 1
-                
+
                 # taking epsilon-greedy action
-                if frame_count < epsilon_random_frames or self.epsilon > np.random.rand(1)[0]:
+                if frame_count < cfg.NUM_RANDOM_FRAMES or self.epsilon > np.random.rand(1)[0]:
                     action = np.random.choice(self.num_actions)
                 else:
                     # taking actions based on Q-value estimations
@@ -74,7 +63,7 @@ class DQNAgent:
                     action = action_probs.argmax(axis=1).item()
                     
                 # decay the epsilon
-                self.epsilon -= self.epsilon_interval/epsilon_greedy_frames
+                self.epsilon -= self.epsilon_interval/cfg.NUM_GREEDY_FRAMES
                 self.epsilon = max(self.epsilon, self.min_epsilon)
                 
                 # taking the action
@@ -93,7 +82,7 @@ class DQNAgent:
                 state = next_state
 
                 # Update every fourth frame and once batch size is over 32
-                if frame_count % update_after_actions == 0 and len(done_history) > self.batch_size:
+                if frame_count % cfg.MODEL_COOLDOWN_FRAMES == 0 and len(done_history) > self.batch_size:
                     # Get indices of samples for replay buffers
                     indices = np.random.choice(range(len(done_history)), size=self.batch_size)
 
@@ -131,7 +120,7 @@ class DQNAgent:
                     # Backpropagation
                     grads = tape.gradient(loss, model.trainable_variables)
                     self.optimizer.apply_gradients(zip(grads, model.trainable_variables))
-                if frame_count % update_target_network == 0:
+                if frame_count % cfg.TARGET_MODEL_COOLDOWN_FRAMES == 0:
                     # update the the target network with new weights
                     model_target.set_weights(model.get_weights())
                     # Log details
@@ -139,7 +128,7 @@ class DQNAgent:
                     print(template.format(running_reward, episode_count, frame_count))
 
                 # Limit the state and reward history
-                if len(reward_history) > max_memory_length:
+                if len(reward_history) > cfg.MAX_REPLAY_MEMORY_LEN:
                     del reward_history[:1]
                     del state_history[:1]
                     del state_next_history[:1]

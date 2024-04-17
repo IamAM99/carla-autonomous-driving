@@ -33,7 +33,12 @@ SECONDS_PER_EPISODE: float = 10.0
 
 # Training
 MAX_EPISODES: int = 10
-MAX_STEPS_PER_EPISODE: int = 10000
+MAX_STEPS_PER_EPISODE: int = 10_000
+NUM_RANDOM_FRAMES: int = 500 # Number of frames to take random action and observe output
+NUM_GREEDY_FRAMES: int = 1_000 # Number of frames for exploration (?)
+MAX_REPLAY_MEMORY_LEN: int = 100_000 # Maximum replay memory length. the Deepmind paper: 1_000_000
+MODEL_COOLDOWN_FRAMES: int = 4 # Train the model every ? actions
+TARGET_MODEL_COOLDOWN_FRAMES: int = 1_000 # Update the target model every ? actions
 
 # Model
 MODEL_TYPE: str = "mlp" # "mlp" or "cnn"
@@ -41,7 +46,7 @@ GAMMA: float = 0.99
 EPSILON: float = 1.0
 EPSILON_MIN: float = 0.1
 EPSILON_MAX: float = 1.0
-BATCH_SIZE: int = 32
+BATCH_SIZE: int = 8
 OPTIMIZER_FUNC = tf.keras.optimizers.Adam
 LEARNING_RATE: float = 0.01
 num_actions = 4
