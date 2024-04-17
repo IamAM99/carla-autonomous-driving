@@ -2,8 +2,8 @@ import os
 
 os.environ["KERAS_BACKEND"] = "tensorflow"
 import tensorflow as tf 
-import keras 
-from keras import layers
+from tensorflow import keras
+from tensorflow.keras import layers
 import numpy as np 
 
 from environment import CarlaEnv
