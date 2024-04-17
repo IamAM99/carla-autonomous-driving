@@ -122,10 +122,11 @@ class DQNAgent:
                 if frame_count < epsilon_random_frames or self.epsilon > np.random.rand(1)[0]:
                     action = np.random.choice(self.num_actions)
                 else:
-                # taking actions based on Q-value estimations
-                    action_probs = model(state, training=False)
+                    # taking actions based on Q-value estimations
+                    action_probs = model(np.expand_dims(state, 0), training=False)
                     # take the best action
-                    action = tf.argmax(action_probs)
+                    action_probs = action_probs.numpy()
+                    action = action_probs.argmax(axis=1).item()
                     
                 # decay the epsilon
                 self.epsilon -= self.epsilon_interval/epsilon_greedy_frames
