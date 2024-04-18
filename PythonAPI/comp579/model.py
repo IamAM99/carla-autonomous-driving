@@ -24,7 +24,7 @@ class DQNAgent:
     def train(self,):
         model = self._create_q_model()
         model_target = self._create_q_model()
-        # Experience history
+        # Experiment history
         action_history = []
         state_history = []
         state_next_history = []
@@ -151,7 +151,7 @@ class DQNAgent:
                 break
         
         # saving the history of the experiment
-        experiment_name = f"DQN_{cfg.MODEL_TYPE}_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        experiment_name = f"DQN_{cfg.MODEL_TYPE}_reward_{running_reward}" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         print(f"Saving {experiment_name}")
         
         history = {
@@ -167,10 +167,62 @@ class DQNAgent:
         model_target.save("../artifacts/models/"+experiment_name+"_model.keras")
         
         
-    def predict(self,):
-        pass
+    def test(self, model_path):
+        # loading mode
+        model = tf.keras.models.load_model(model_path)
+        
+        # Experiment history
+        action_history = []
+        state_history = []
+        state_next_history = []
+        reward_history = []
+        done_history = []
+        episode_reward = 0
+        frame_count = 0
+        
+        # resetting the environment
+        state = self.env.reset()
+        state = self._reshape_input(state)
+            
+        
+        for timestep in range(1, cfg.MAX_STEPS_PER_EPISODE):
+            frame_count += 1
+            # taking actions based on Q-value estimations
+            action_probs = model(np.expand_dims(state, 0), training=False)
+            # take the best action
+            action_probs = action_probs.numpy()
+            action = action_probs.argmax(axis=1).item()
+            
+            # taking the action
+            next_state, reward, done, _ = self.env.step(action)
+            next_state = self._reshape_input(next_state)
+            episode_reward += reward
 
-
+            # saving the actions, rewards and states
+            action_history.append(action)
+            state_history.append(state.tolist())
+            state_next_history.append(next_state.tolist())
+            done_history.append(done)
+            reward_history.append(reward)
+        
+            # update the state
+            state = next_state       
+            
+            if done:
+                print(f"Episode is done at frame {frame_count}")
+                break
+        
+        
+        history = {
+            "action": action_history,
+            "reward": reward_history,
+            "state": state_history,
+            "done": done_history,
+        }
+        
+        return history, episode_reward
+        
+        
     def _create_q_model(self):
         if cfg.MODEL_TYPE == "cnn":
             return keras.Sequential(
