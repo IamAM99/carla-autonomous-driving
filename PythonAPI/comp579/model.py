@@ -5,7 +5,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np
-import json 
+import pickle 
 from datetime import datetime
 
 import config as cfg
@@ -162,7 +162,7 @@ class DQNAgent:
         }
 
         with open("../artifacts/history/"+experiment_name+"_history.json", "w") as history_file:
-            json.dump(history, history_file)
+            pickle.dump(history, history_file)
         
         model_target.save("../artifacts/models/"+experiment_name+"_model.keras")
         
