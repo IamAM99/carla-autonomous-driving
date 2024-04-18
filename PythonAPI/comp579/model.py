@@ -161,7 +161,7 @@ class DQNAgent:
             "done": done_history,
         }
 
-        with open("../artifacts/history/"+experiment_name+"_history.json", "w") as history_file:
+        with open("../artifacts/history/"+experiment_name+"_history.pkl", "wb") as history_file:
             pickle.dump(history, history_file)
         
         model_target.save("../artifacts/models/"+experiment_name+"_model.keras")
