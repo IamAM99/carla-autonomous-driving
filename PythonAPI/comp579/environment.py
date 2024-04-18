@@ -30,7 +30,7 @@ class CarlaEnv:
     def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, *args, **kwargs):
         # make a connection to the server
         self.client = carla.Client(host, port)
-        self.client.set_timeout(4.0)
+        self.client.set_timeout(10.0)
 
         # control parameters
         self.num_waypoints = cfg.NUM_WAYPOINT_FEATURES
@@ -88,6 +88,7 @@ class CarlaEnv:
 
         # initialization of other attributes
         self.episode_start: float = time.time()
+        self.sensor_list: list = []
 
     def reset(self, car_spawn_point: carla.Location = None, *args, **kwargs):
         self.clear()
@@ -179,17 +180,15 @@ class CarlaEnv:
         return states, reward, is_done, None
 
     def clear(self):
-        all_actors = self.world.get_actors()
-        for sensor in all_actors.filter("*sensor*"):
+        for sensor in self.sensor_list:
             if sensor.is_listening:
                 sensor.stop()
-            destroyed_sucessfully = sensor.destroy()
-
-        all_actors = self.world.get_actors()
-
-        for vehicle in all_actors.filter("*vehicle*"):
-            destroyed_sucessfully = vehicle.destroy()
+            sensor.destroy()
         
+        if self.vehicle:
+            self.vehicle.destroy()
+
+        self.sensor_list = []
         self.waypoint = None
         self.waypoints = None
         self.vehicle = None
@@ -261,6 +260,8 @@ class CarlaEnv:
         self.camera = self.world.spawn_actor(cam_bp, spawn_point, attach_to=self.vehicle)
 
         self.camera.listen(lambda data: self._process_img(data)) # start capturing the image
+        
+        self.sensor_list.append(self.camera)
  
         return self.camera
 
@@ -268,6 +269,7 @@ class CarlaEnv:
         col_sensor = self.bp_lib.find("sensor.other.collision")
         self.collision_sensor = self.world.spawn_actor(col_sensor, transform=carla.Transform(), attach_to=self.vehicle)
         self.collision_sensor.listen(lambda event: self._collision_data(event))
+        self.sensor_list.append(self.collision_sensor)
 
         return self.collision_sensor
     
@@ -275,8 +277,9 @@ class CarlaEnv:
         lane_sensor = self.bp_lib.find("sensor.other.lane_invasion")
         self.lane_sensor = self.world.spawn_actor(lane_sensor, transform=carla.Transform(), attach_to=self.vehicle)
         self.lane_sensor.listen(lambda event: self._lane_data(event))
+        self.sensor_list.append(self.lane_sensor)
 
-        return self.collision_sensor
+        return self.lane_sensor
     
     def _process_img(self, data):
         self.front_camera = np.array(data.raw_data).reshape((cfg.IM_HEIGHT, cfg.IM_WIDTH, 4))[:, :, :3]
