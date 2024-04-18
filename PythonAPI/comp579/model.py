@@ -4,7 +4,9 @@ os.environ["KERAS_BACKEND"] = "tensorflow"
 import tensorflow as tf 
 from tensorflow import keras
 from tensorflow.keras import layers
-import numpy as np 
+import numpy as np
+import json 
+from datetime import datetime
 
 import config as cfg
 
@@ -147,7 +149,22 @@ class DQNAgent:
             ):  # Maximum number of episodes reached
                 print("Stopped at episode {}!".format(episode_count))
                 break
-    
+        
+        # saving the history of the experiment
+        experiment_name = f"DQN_{self.MODEL_TYPE}_" + datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+        
+        history = {
+            "action": action_history,
+            "reward": reward_history,
+            "state": state_history,
+            "done": done_history,
+        }
+        with open("../artifacts/history/"+experiment_name+"_history.json", "w") as history_file:
+            json.dump(history, history_file)
+        
+        model_target.save("../artifacts/models/"+experiment_name+"_model.keras")
+        
+        
     def predict(self,):
         pass
 
