@@ -151,7 +151,8 @@ class DQNAgent:
                 break
         
         # saving the history of the experiment
-        experiment_name = f"DQN_{self.MODEL_TYPE}_" + datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+        experiment_name = f"DQN_{cfg.MODEL_TYPE}_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        print("Saving {experiment_name}")
         
         history = {
             "action": action_history,
@@ -159,6 +160,7 @@ class DQNAgent:
             "state": state_history,
             "done": done_history,
         }
+        
         with open("../artifacts/history/"+experiment_name+"_history.json", "w") as history_file:
             json.dump(history, history_file)
         
