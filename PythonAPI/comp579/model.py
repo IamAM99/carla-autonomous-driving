@@ -63,11 +63,11 @@ class DQNAgent:
                 next_state, reward, done, _ = self.env.step(action)
                 next_state = self._reshape_input(next_state)
                 episode_reward += reward
-                
+
                 # saving the actions, rewards and states
                 action_history.append(action)
-                state_history.append(state)
-                state_next_history.append(next_state)
+                state_history.append(state.tolist())
+                state_next_history.append(next_state.tolist())
                 done_history.append(done)
                 reward_history.append(reward)
                 
