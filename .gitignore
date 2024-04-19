@@ -1,6 +1,8 @@
 *.exe
 *.pyc
 *.png
+*.json
+*.keras
 
 HDMaps/
 Engine/
