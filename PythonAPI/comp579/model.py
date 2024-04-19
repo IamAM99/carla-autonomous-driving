@@ -1,12 +1,19 @@
 import os 
 
 os.environ["KERAS_BACKEND"] = "tensorflow"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # don't print warning and infor messages
+
 import tensorflow as tf 
 from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np
 import json 
+import random
+import time
+from threading import Thread
 from datetime import datetime
+from collections import deque
+from tqdm.auto import tqdm
 
 import config as cfg
 
@@ -17,211 +24,166 @@ class DQNAgent:
         self.epsilon = cfg.EPSILON
         self.optimizer = cfg.OPTIMIZER_FUNC(learning_rate=cfg.LEARNING_RATE)
         self.num_actions = len(cfg.ACTIONS)
-    
-    def update(self,):
-        pass
-    
+        self.replay_memory = deque(maxlen=cfg.MAX_REPLAY_MEMORY_LEN)
+        self.loss_func = keras.losses.MSE
+
+        self.model = self._create_q_model()
+        self.target_model = self._create_q_model()
+        self.training_initialized = False
+        self.terminate = False
+        self.frame_count = 0
+
+        self.trainer_thread = None
+
     def train(self,):
-        model = self._create_q_model()
-        model_target = self._create_q_model()
+        # start training thread
+        self.trainer_thread = Thread(target=self._training_loop, daemon=True)
+        self.trainer_thread.start()
+        while not self.training_initialized:
+            time.sleep(0.1)
+
         # Experiment history
-        action_history = []
-        state_history = []
-        state_next_history = []
-        reward_history = []
-        done_history = []
-        episode_reward_history = []
-        running_reward = 0
-        episode_count = 0
-        frame_count = 0
+        history = {
+            "state": [],
+            "action": [],
+            "reward": [],
+            "episode_reward": [],
+        }
         
-        while True:
-            # resetting the environment
+        for episode in tqdm(range(1, cfg.MAX_EPISODES+1), position=0, leave=True, ascii=True, unit="episodes"):
             state = self.env.reset()
             state = self._reshape_input(state)
-            
-            episode_reward = 0
-            
-            for timestep in range(1, cfg.MAX_STEPS_PER_EPISODE):
-                frame_count += 1
 
-                # taking epsilon-greedy action
-                if frame_count < cfg.NUM_RANDOM_FRAMES or cfg.EPSILON > np.random.rand(1)[0]:
-                    action = np.random.choice(self.num_actions)
-                else:
-                    # taking actions based on Q-value estimations
-                    action_probs = model(np.expand_dims(state, 0), training=False)
-                    # take the best action
-                    action_probs = action_probs.numpy()
-                    action = action_probs.argmax(axis=1).item()
-                    
+            episode_reward = 0
+
+            while True:
+                self.frame_count += 1
+
+                # take an epsilon-greedy action
+                action = self._take_action(state, is_random=(self.frame_count<cfg.NUM_RANDOM_FRAMES))
+
                 # decay the epsilon
-                self.epsilon -= (cfg.EPSILON_MAX - cfg.EPSILON_MIN) / cfg.NUM_GREEDY_FRAMES
-                self.epsilon = max(self.epsilon, cfg.EPSILON_MIN)
-                
-                # taking the action
+                self._decay_epsilon()
+
+                # pass the action to the environment
                 next_state, reward, done, _ = self.env.step(action)
                 next_state = self._reshape_input(next_state)
+                self._update_replay_memory((state, action, reward, next_state, done))
+
+                # update logging variables
+                history["state"].append(np.squeeze(state).tolist())
+                history["action"].append(action)
+                history["reward"].append(reward)
                 episode_reward += reward
 
-                # saving the actions, rewards and states
-                action_history.append(action)
-                state_history.append(state.tolist())
-                state_next_history.append(next_state.tolist())
-                done_history.append(done)
-                reward_history.append(reward)
-                
                 # update the state
                 state = next_state
 
-                # Update every fourth frame and once batch size is over 32
-                if frame_count % cfg.MODEL_COOLDOWN_FRAMES == 0 and len(done_history) > cfg.BATCH_SIZE:
-                    # Get indices of samples for replay buffers
-                    indices = np.random.choice(range(len(done_history)), size=cfg.BATCH_SIZE)
-
-                    # Using list comprehension to sample from replay buffer
-                    state_sample = np.array([state_history[i] for i in indices])
-                    state_next_sample = np.array([state_next_history[i] for i in indices])
-                    rewards_sample = [reward_history[i] for i in indices]
-                    action_sample = [action_history[i] for i in indices]
-                    done_sample = tf.convert_to_tensor(
-                        [float(done_history[i]) for i in indices]
-                    )
-
-                    # Build the updated Q-values for the sampled future states
-                    # Use the target model for stability
-                    future_rewards = model_target.predict(state_next_sample)
-                    # Q value = reward + discount factor * expected future reward
-                    updated_q_values = rewards_sample + cfg.GAMMA * tf.reduce_max(future_rewards, axis=1)
-
-                    # If final frame set the last value to -1
-                    updated_q_values = updated_q_values * (1 - done_sample) - done_sample
-
-                    # Create a mask so we only calculate loss on the updated Q-values
-                    masks = tf.one_hot(action_sample, self.num_actions)
-
-                    with tf.GradientTape() as tape:
-                        # Train the model on the states and updated Q-values
-                        q_values = model(state_sample)
-
-                        # Apply the masks to the Q-values to get the Q-value for action taken
-                        q_action = tf.reduce_sum(tf.math.multiply(q_values, masks), axis=1)
-                        # Calculate loss between new Q-value and old Q-value
-                        # print(f"updated q: {updated_q_values}")
-                        # print(f"q: {q_action}")
-                        loss = keras.losses.MSE(updated_q_values, q_action)
-                    # Backpropagation
-                    grads = tape.gradient(loss, model.trainable_variables)
-                    self.optimizer.apply_gradients(zip(grads, model.trainable_variables))
-                if frame_count % cfg.TARGET_MODEL_COOLDOWN_FRAMES == 0:
-                    # update the the target network with new weights
-                    model_target.set_weights(model.get_weights())
-                    # Log details
-                    template = "running reward: {:.2f} at episode {}, frame count {}"
-                    print(template.format(running_reward, episode_count, frame_count))
-
-                # Limit the state and reward history
-                if len(reward_history) > cfg.MAX_REPLAY_MEMORY_LEN:
-                    del reward_history[:1]
-                    del state_history[:1]
-                    del state_next_history[:1]
-                    del action_history[:1]
-                    del done_history[:1]
-
                 if done:
-                    print(f"Episode {episode_count} done at frame {frame_count}")
+                    # print(f"Episode {episode} done at frame {self.frame_count}")
                     break
+            
+            history["episode_reward"].append(episode_reward)
 
-            # Update running reward to check condition for solving
-            episode_reward_history.append(episode_reward)
-            if len(episode_reward_history) > 100:
-                del episode_reward_history[:1]
-            running_reward = np.mean(episode_reward_history)
-
-            episode_count += 1
-
-            if running_reward > 4000:  # Condition to consider the task solved
-                print("Solved at episode {}!".format(episode_count))
-                break
-
-            if (
-                cfg.MAX_EPISODES > 0 and episode_count >= cfg.MAX_EPISODES
-            ):  # Maximum number of episodes reached
-                print("Stopped at episode {}!".format(episode_count))
-                break
+        # Maximum number of episodes reached
+        print(f"Stopped at episode {episode}, frame {self.frame_count}.")
         
-        # saving the history of the experiment
-        experiment_name = f"DQN_{cfg.MODEL_TYPE}_reward_{running_reward}" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # save the history of the experiment
+        experiment_name = f"DQN_{cfg.MODEL_TYPE}_reward_{episode_reward}" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         print(f"Saving {experiment_name}")
-        
-        history = {
-            "action": action_history,
-            "reward": reward_history,
-            "state": state_history,
-            "done": done_history,
-        }
 
-        with open("../artifacts/history/"+experiment_name+"_history.json", "wb") as history_file:
+        with open("../artifacts/history/"+experiment_name+"_history.json", "w") as history_file:
             json.dump(history, history_file)
         
-        model_target.save("../artifacts/models/"+experiment_name+"_model.keras")
-        
-        
-    def test(self, model_path):
-        # loading mode
-        model = tf.keras.models.load_model(model_path)
-        
-        # Experiment history
-        action_history = []
-        state_history = []
-        state_next_history = []
-        reward_history = []
-        done_history = []
-        episode_reward = 0
-        frame_count = 0
-        
-        # resetting the environment
-        state = self.env.reset()
-        state = self._reshape_input(state)
-            
-        
-        for timestep in range(1, cfg.MAX_STEPS_PER_EPISODE):
-            frame_count += 1
+        self.target_model.save("../artifacts/models/"+experiment_name+"_model.keras")
+
+    def kill_thread(self,):
+        self.terminate = True
+        self.trainer_thread.join()
+
+    def _update_replay_memory(self, transition):
+        # transition: (current_state, action, reward, next_state, done)
+        self.replay_memory.append(transition)
+
+    def _take_action(self, state, is_random):
+        if is_random or cfg.EPSILON > np.random.rand(1)[0]:
+            action = np.random.choice(self.num_actions)
+            time.sleep(1/20)
+        else:
             # taking actions based on Q-value estimations
-            action_probs = model(np.expand_dims(state, 0), training=False)
+            action_probs = self.model(state, training=False)
             # take the best action
             action_probs = action_probs.numpy()
             action = action_probs.argmax(axis=1).item()
-            
-            # taking the action
-            next_state, reward, done, _ = self.env.step(action)
-            next_state = self._reshape_input(next_state)
-            episode_reward += reward
+        
+        return action
 
-            # saving the actions, rewards and states
-            action_history.append(action)
-            state_history.append(state.tolist())
-            state_next_history.append(next_state.tolist())
-            done_history.append(done)
-            reward_history.append(reward)
+    def _decay_epsilon(self,):
+        self.epsilon -= (cfg.EPSILON_MAX - cfg.EPSILON_MIN) / cfg.NUM_GREEDY_FRAMES
+        self.epsilon = max(self.epsilon, cfg.EPSILON_MIN)
+    
+    def _fit_batch(self):
+        """fit the model on the replay memory in a batch 
+        """
+        if len(self.replay_memory) < cfg.MIN_REPLAY_MEMORY_LEN:
+            return False
         
-            # update the state
-            state = next_state       
-            
-            if done:
-                print(f"Episode is done at frame {frame_count}")
-                break
-        
-        
-        history = {
-            "action": action_history,
-            "reward": reward_history,
-            "state": state_history,
-            "done": done_history,
-        }
-        
-        return history, episode_reward
-        
+        minibatch = random.sample(self.replay_memory, cfg.BATCH_SIZE)
+
+        # unpack samples
+        current_states = np.array([transition[0] for transition in minibatch])
+        actions_list = np.array([transition[1] for transition in minibatch])
+        rewards_list = np.array([transition[2] for transition in minibatch])
+        future_states = np.array([transition[3] for transition in minibatch])
+        done_list = tf.convert_to_tensor([float(transition[4]) for transition in minibatch])
+
+        # predict Q-value using the target model
+        future_q_list = self.target_model(future_states)
+        future_q_list = tf.squeeze(future_q_list)
+
+        # Q value = reward + discount factor * expected future reward
+        updated_q_values = rewards_list + (1 - done_list) * cfg.GAMMA * tf.reduce_max(future_q_list, axis=1)
+
+        # Create a mask so we only calculate loss on the updated Q-values
+        masks = tf.one_hot(actions_list, self.num_actions)
+
+        # train the model
+        self._fit(current_states, updated_q_values, masks)
+
+    def _fit(self, X, y, masks):
+        with tf.GradientTape() as tape:
+            # Train the model on the states and updated Q-values
+            q_values = self.model(X)
+            q_values = tf.squeeze(q_values)
+
+            # Apply the masks to the Q-values to get the Q-value for action taken
+            q_action = tf.reduce_sum(tf.math.multiply(q_values, masks), axis=1)
+            # Calculate loss between new Q-value and old Q-value
+            loss = self.loss_func(y, q_action)
+
+        # Backpropagation
+        grads = tape.gradient(loss, self.model.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
+
+    def _update_target_model(self,):
+        if self.frame_count % cfg.TARGET_MODEL_UPDATE_INTERVAL == 0:
+            self.target_model.set_weights(self.model.get_weights())
+
+    def _training_loop(self,):
+        # call fit once to initialize tensorflow (to avoid future delays)
+        random_states = tf.random.uniform(shape=(1, cfg.NUM_WAYPOINT_FEATURES+3))
+        random_q = tf.random.uniform(shape=(1, self.num_actions))
+        random_mask = tf.one_hot([0], self.num_actions)
+        self._fit(random_states, random_q, random_mask)
+        self.training_initialized = True
+
+        # start the training process
+        while True:
+            if self.terminate:
+                return
+            self._fit_batch()
+            self._update_target_model()
+            time.sleep(0.01)
         
     def _create_q_model(self):
         if cfg.MODEL_TYPE == "cnn":
@@ -261,4 +223,58 @@ class DQNAgent:
         if cfg.MODEL_TYPE == "cnn":
             state = state["image"]
         
-        return state
+        return np.expand_dims(state, 0)
+
+    def test(self, model_path):
+        # loading mode
+        model = tf.keras.models.load_model(model_path)
+        
+        # Experiment history
+        action_history = []
+        state_history = []
+        state_next_history = []
+        reward_history = []
+        done_history = []
+        episode_reward = 0
+        
+        # resetting the environment
+        state = self.env.reset()
+        state = self._reshape_input(state)
+            
+        
+        for timestep in range(1, cfg.MAX_STEPS_PER_EPISODE):
+            self.frame_count += 1
+            # taking actions based on Q-value estimations
+            action_probs = model(np.expand_dims(state, 0), training=False)
+            # take the best action
+            action_probs = action_probs.numpy()
+            action = action_probs.argmax(axis=1).item()
+            
+            # taking the action
+            next_state, reward, done, _ = self.env.step(action)
+            next_state = self._reshape_input(next_state)
+            episode_reward += reward
+
+            # saving the actions, rewards and states
+            action_history.append(action)
+            state_history.append(state.tolist())
+            state_next_history.append(next_state.tolist())
+            done_history.append(done)
+            reward_history.append(reward)
+        
+            # update the state
+            state = next_state       
+            
+            if done:
+                print(f"Episode is done at frame {self.frame_count}")
+                break
+        
+        
+        history = {
+            "action": action_history,
+            "reward": reward_history,
+            "state": state_history,
+            "done": done_history,
+        }
+        
+        return history, episode_reward

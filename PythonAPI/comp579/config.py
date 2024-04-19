@@ -36,9 +36,9 @@ MAX_EPISODES: int = 10
 MAX_STEPS_PER_EPISODE: int = 10_000
 NUM_RANDOM_FRAMES: int = 500 # Number of frames to take random action and observe output
 NUM_GREEDY_FRAMES: int = 1_000 # Number of frames for exploration (?)
-MAX_REPLAY_MEMORY_LEN: int = 100_000 # Maximum replay memory length. the Deepmind paper: 1_000_000
-MODEL_COOLDOWN_FRAMES: int = 4 # Train the model every ? actions
-TARGET_MODEL_COOLDOWN_FRAMES: int = 1_000 # Update the target model every ? actions
+MIN_REPLAY_MEMORY_LEN: int = 1_000 # Minimum replay memory length to start training
+MAX_REPLAY_MEMORY_LEN: int = 5_000 # Maximum replay memory length. the Deepmind paper: 1_000_000
+TARGET_MODEL_UPDATE_INTERVAL: int = 1_000 # Update the target model every ? actions
 
 # Model
 MODEL_TYPE: str = "mlp" # "mlp" or "cnn"
