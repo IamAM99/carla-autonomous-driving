@@ -13,7 +13,7 @@ import time
 from threading import Thread
 from datetime import datetime
 from collections import deque
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 import config as cfg
 
@@ -52,7 +52,12 @@ class DQNAgent:
             "loss": [],
         }
         
-        for episode in tqdm(range(1, cfg.MAX_EPISODES+1), position=0, leave=True, ascii=True, unit="episodes"):
+        # create a progress bar
+        pbar = tqdm(range(1, cfg.MAX_EPISODES+1), position=0, leave=True, ascii=True, unit="episode")
+
+        for episode in pbar:
+            pbar.set_description(f"Running episode {episode}")
+            
             state = self.env.reset()
             state = self._reshape_input(state)
 
@@ -60,9 +65,14 @@ class DQNAgent:
 
             while True:
                 self.frame_count += 1
+                pbar.display(f"Current frame num: {self.frame_count}", pos=1)
 
+                if self.loss_list:
+                    pbar.display(f"Total number of model updates: {len(self.loss_list)}", pos=2)
+                    pbar.display(f"Log10 of MSE loss: {np.log10(self.loss_list[-1]):.1f}", pos=3)
+                
                 # take an epsilon-greedy action
-                action = self._take_action(state, is_random=(self.frame_count<cfg.NUM_RANDOM_FRAMES))
+                action = self._take_action(state, is_random=(self.frame_count<cfg.MIN_REPLAY_MEMORY_LEN))
 
                 # decay the epsilon
                 self._decay_epsilon()
@@ -81,16 +91,20 @@ class DQNAgent:
                 # update the state
                 state = next_state
 
+                pbar.display(f"Current frame reward: {reward:.2f}", pos=4)
+
                 if done:
                     # print(f"Episode {episode} done at frame {self.frame_count}")
                     break
             
             history["episode_reward"].append(episode_reward)
+            pbar.display(f"Previous episode return: {episode_reward:.2f}", pos=5)
+
 
         history["loss"] = self.loss_list
 
         # Maximum number of episodes reached
-        print(f"Stopped at episode {episode}, frame {self.frame_count}.")
+        print(f"Stopped at episode {episode}, frame {self.frame_count}, loss {self.loss_list[-1]:.4f}.")
         
         # save the history of the experiment
         experiment_name = f"DQN_{cfg.MODEL_TYPE}_reward_{episode_reward}" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -112,7 +126,7 @@ class DQNAgent:
     def _take_action(self, state, is_random):
         if is_random or cfg.EPSILON > np.random.rand(1)[0]:
             action = np.random.choice(self.num_actions)
-            time.sleep(1/20)
+            time.sleep(1/cfg.ACTIONS_PER_SECOND)
         else:
             # taking actions based on Q-value estimations
             action_probs = self.model(state, training=False)
@@ -190,7 +204,7 @@ class DQNAgent:
                 return
             self._fit_batch()
             self._update_target_model()
-            time.sleep(0.01)
+            time.sleep(1/cfg.TRAIN_PER_SECOND)
         
     def _create_q_model(self):
         if cfg.MODEL_TYPE == "cnn":
