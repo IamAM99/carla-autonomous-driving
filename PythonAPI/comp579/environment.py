@@ -105,7 +105,10 @@ class CarlaEnv:
         self.vehicle.apply_control(carla.VehicleControl(throttle=1.0, brake=1.0))
         
         # wait for the car to fall and settle
-        time.sleep(4)
+        time.sleep(cfg.INITIAL_WAITING_TIME)
+        
+        # disengage the brakes
+        self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
 
         # wait for the camera to start capturing
         while self.front_camera is None:
@@ -118,8 +121,6 @@ class CarlaEnv:
         # set starting time
         self.episode_start = time.time()
 
-        # disengage the brakes
-        self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
 
         # get the states
         self._update_loc_waypoint()

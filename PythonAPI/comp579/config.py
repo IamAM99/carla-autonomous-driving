@@ -30,6 +30,7 @@ LOCK_SPECTATOR_VIEW: bool = False
 # Simulation
 NO_RENDERING_MODE: bool = False
 SECONDS_PER_EPISODE: float = 10.0
+INITIAL_WAITING_TIME: float = 2.0
 
 # Training
 MAX_EPISODES: int = 10
