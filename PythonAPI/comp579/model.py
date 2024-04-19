@@ -34,6 +34,7 @@ class DQNAgent:
         self.frame_count = 0
 
         self.trainer_thread = None
+        self.loss_list = []
 
     def train(self,):
         # start training thread
@@ -48,6 +49,7 @@ class DQNAgent:
             "action": [],
             "reward": [],
             "episode_reward": [],
+            "loss": [],
         }
         
         for episode in tqdm(range(1, cfg.MAX_EPISODES+1), position=0, leave=True, ascii=True, unit="episodes"):
@@ -84,6 +86,8 @@ class DQNAgent:
                     break
             
             history["episode_reward"].append(episode_reward)
+
+        history["loss"] = self.loss_list
 
         # Maximum number of episodes reached
         print(f"Stopped at episode {episode}, frame {self.frame_count}.")
@@ -164,6 +168,9 @@ class DQNAgent:
         # Backpropagation
         grads = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
+
+        # log loss value
+        self.loss_list.append(loss.numpy().item())
 
     def _update_target_model(self,):
         if self.frame_count % cfg.TARGET_MODEL_UPDATE_INTERVAL == 0:
