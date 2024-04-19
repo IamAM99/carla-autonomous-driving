@@ -30,7 +30,7 @@ class CarlaEnv:
     def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, *args, **kwargs):
         # make a connection to the server
         self.client = carla.Client(host, port)
-        self.client.set_timeout(10.0)
+        self.client.set_timeout(5.0)
 
         # control parameters
         self.num_waypoints = cfg.NUM_WAYPOINT_FEATURES
@@ -179,14 +179,24 @@ class CarlaEnv:
 
         return states, reward, is_done, None
 
-    def clear(self):
-        for sensor in self.sensor_list:
+    def clear(self, final=False):
+        if final:
+            self.client.set_timeout(30.0)
+            all_actors = self.world.get_actors()
+            sensor_list = all_actors.filter("*sensor*")
+            vehicle_list = all_actors.filter("*vehicle*")
+        else:
+            sensor_list = self.sensor_list
+            vehicle_list = [self.vehicle]
+
+        for sensor in sensor_list:
             if sensor.is_listening:
                 sensor.stop()
             sensor.destroy()
         
-        if self.vehicle:
-            self.vehicle.destroy()
+        for vehicle in vehicle_list:
+            if vehicle:
+                vehicle.destroy()
 
         self.sensor_list = []
         self.waypoint = None
@@ -303,7 +313,7 @@ class CarlaEnv:
     def _collision_data(self, event):
         name = ' '.join(event.other_actor.type_id.replace('_', '.').title().split('.')[1:])
         truncate = 250
-        print((name[:truncate - 1] + u'\u2026') if len(name) > truncate else name)
+        # print((name[:truncate - 1] + u'\u2026') if len(name) > truncate else name)
 
         self.collision_hist.append(event)
 
