@@ -156,7 +156,7 @@ class CarlaEnv:
         )
 
         # check if done and get the reward value
-        if (len(self.collision_hist) != 0) or self.crossed_center_line:
+        if (len(self.collision_hist) != 0) or self.crossed_center_line or distance > 4:
             is_done = True
             reward = cfg.COLLISION_REWARD
         elif self._calc_distance(self.vehicle_transform.location, self.route_points[-1].location) < cfg.GOAL_DISTANCE_THRESHOLD:
