@@ -4,6 +4,8 @@ import sys
 import numpy as np
 from typing import List
 
+import config as cfg
+
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
@@ -24,7 +26,7 @@ class RouteReward:
         vehicle_transform: carla.Transform, 
         waypoint_transform: carla.Transform,
         v_vector: carla.Vector3D,
-        distance_threshold: float = 2.5,
+        distance_threshold: float = cfg.MIN_WAYPOINT_DISTANCE_TO_RECORD,
     ) -> float:
         # minimum distance from the list of route points
         distances = [
