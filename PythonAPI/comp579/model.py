@@ -49,6 +49,7 @@ class DQNAgent:
             "action": [],
             "reward": [],
             "episode_reward": [],
+            "average_reward": [],
             "loss": [],
         }
         
@@ -62,6 +63,8 @@ class DQNAgent:
             state = self._reshape_input(state)
 
             episode_reward = 0
+            start_frame = self.frame_count
+            start_time = time.time()
 
             while True:
                 self.frame_count += 1
@@ -80,6 +83,7 @@ class DQNAgent:
                 # pass the action to the environment
                 next_state, reward, done, _ = self.env.step(action)
                 next_state = self._reshape_input(next_state)
+                reward = -1 + reward * cfg.REWARD_NORMALIZATION_FACTOR # - 0.2 * (time.time()-start_time)/cfg.SECONDS_PER_EPISODE
                 self._update_replay_memory((state, action, reward, next_state, done))
 
                 # update logging variables
@@ -97,8 +101,12 @@ class DQNAgent:
                     # print(f"Episode {episode} done at frame {self.frame_count}")
                     break
             
+            avg_reward = episode_reward/(self.frame_count - start_frame)
             history["episode_reward"].append(episode_reward)
+            history["average_reward"].append(avg_reward)
+            
             pbar.display(f"Previous episode return: {episode_reward:.2f}", pos=5)
+            pbar.display(f"Previous average reward: {avg_reward:.4f}", pos=6)
 
 
         history["loss"] = self.loss_list
