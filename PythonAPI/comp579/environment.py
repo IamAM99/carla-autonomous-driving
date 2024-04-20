@@ -30,7 +30,7 @@ class CarlaEnv:
     def __init__(self, host: str = cfg.HOST_IP, port: int = cfg.PORT, *args, **kwargs):
         # make a connection to the server
         self.client = carla.Client(host, port)
-        self.client.set_timeout(5.0)
+        self.client.set_timeout(10.0)
 
         # control parameters
         self.num_waypoints = cfg.NUM_WAYPOINT_FEATURES
@@ -80,6 +80,7 @@ class CarlaEnv:
         
         # sensors
         self.camera: carla.Sensor = None
+        self.show_cam: bool = cfg.SHOW_CAM
         self.front_camera: np.typing.ArrayLike = None # output of the front camera
         self.collision_sensor: carla.Sensor = None
         self.collision_hist: list = []
@@ -181,6 +182,7 @@ class CarlaEnv:
         return states, reward, is_done, None
 
     def clear(self, final=False):
+        self.show_cam = False
         if final:
             self.client.set_timeout(30.0)
             all_actors = self.world.get_actors()
@@ -198,7 +200,7 @@ class CarlaEnv:
         for vehicle in vehicle_list:
             if vehicle:
                 vehicle.destroy()
-
+        self.show_cam = cfg.SHOW_CAM
         self.sensor_list = []
         self.waypoint = None
         self.waypoints = None
@@ -298,9 +300,11 @@ class CarlaEnv:
         if cfg.LOCK_SPECTATOR_VIEW:
             self.spectator.set_transform(get_transform(self.vehicle.get_location()))
         
-        if cfg.SHOW_CAM:
-            cv2.imshow("", self.front_camera)
+        if self.show_cam:
+            cv2.imshow("front_camera", self.front_camera)
             cv2.waitKey(1)
+        elif cv2.getWindowProperty("front_camera", cv2.WND_PROP_VISIBLE) > 0:
+            cv2.destroyWindow("front_camera")
         
         if cfg.SAVE_IMG:
             data.save_to_disk('_out/%06d.png' % data.frame_number)
@@ -320,7 +324,8 @@ class CarlaEnv:
 
     def _lane_data(self, event):
         lane_types = set(x.type for x in event.crossed_lane_markings)
-        if carla.libcarla.LaneMarkingType.SolidSolid in lane_types:
+        if (carla.libcarla.LaneMarkingType.SolidSolid in lane_types):# or\
+        #    (carla.libcarla.LaneMarkingType.Solid in lane_types):
             self.crossed_center_line = True
     
 def get_transform(vehicle_location, angle=-90, d=3):
