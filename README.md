@@ -1,4 +1,21 @@
-# COMP 579: CARLA Project
+# DQN-Based Autonomous Driving Systems in CARLA
+
+Full report of the project can be found in (report.pdf)[report.pdf].
+
+## Summary
+This project investigates the efficacy of Deep Q-Networks (DQN) for autonomous driving within the CARLA simulation environment. A DQN agent was developed to autonomously navigate a vehicle along a set route, aiming to avoid collisions and remain on the roadway. The environment was simplified by excluding pedestrians and other vehicles to focus exclusively on the driving task. Various experiments were conducted to refine the action space and reward function. The findings suggest that DQN may not be ideal for this application, indicating a potential need to explore alternative approaches like deep deterministic policy gradient (DDPG) for further performance assessment.
+
+| ![the waypoints in Carla](figs/carla_path.png) | 
+|:--:| 
+| *Figure 1. The designated route for the car to follow. The path waypoints are shown with red squares and the destination is shown with a green square.* |
+
+| ![state space definition](figs/car_diagram.png) | 
+|:--:| 
+| *Figure 2. State space definition.* $d_t$ *denotes the distance of the car from the closest waypoint of the path.* $\phi_t$ *denotes the angle between the vehicle’s direction and the road direction. Finally,* $V_t$ *denotes the velocity of the vehicle.* |
+
+| ![state space definition](figs/dqn_architecture.jpg) | 
+|:--:| 
+| *Figure 3. The structure of the DQN.* |
 
 ## Instructions for Running the Code
 Follow the steps below to run an experiment:
